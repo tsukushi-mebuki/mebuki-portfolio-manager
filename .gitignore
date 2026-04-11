@@ -1,0 +1,49 @@
+# -----------------------------------------------------------------------------
+# Mebuki Portfolio Manager — Git ignore rules
+# プラグインのビルド成果物 mebuki-portfolio-manager/assets/ は配布用に Git 管理するため
+# このファイルでは assets を無視「しない」（下記に assets を書かない）。
+# -----------------------------------------------------------------------------
+
+# --- Dependencies ---
+node_modules/
+vendor/
+
+# --- OS ---
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# --- Editors & IDEs ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- Environment & secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Logs & caches ---
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.phpunit.result.cache
+.php-cs-fixer.cache
+
+# --- Tooling / local binaries (optional) ---
+stripe.exe
+
+# --- WordPress test harness (local PHPUnit / Docker; 巨大なため通常はコミットしない) ---
+mebuki-portfolio-manager/.wp-core/
+mebuki-portfolio-manager/.wp-tests-lib/
+
+# --- Misc ---
+*.tsbuildinfo
+coverage/
+dist/

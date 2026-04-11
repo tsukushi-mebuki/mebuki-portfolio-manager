@@ -1,0 +1,63 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: mebuki-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: wordpress
+      MYSQL_TEST_DATABASE: wordpress_test
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+    volumes:
+      - db_data:/var/lib/mysql
+
+  wordpress:
+    image: wordpress:latest
+    container_name: mebuki-wordpress
+    depends_on:
+      - db
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - ./mebuki-portfolio-manager:/var/www/html/wp-content/plugins/mebuki-portfolio-manager
+
+  composer:
+    image: composer:2
+    container_name: mebuki-composer
+    depends_on:
+      - db
+      - wordpress
+    working_dir: /app
+    entrypoint: ["/bin/sh", "-lc"]
+    environment:
+      WP_TESTS_DIR: /app/.wp-tests-lib
+      WP_CORE_DIR: /app/.wp-core
+      WP_TESTS_DB_HOST: db
+      WP_TESTS_DB_NAME: wordpress_test
+      WP_TESTS_DB_USER: root
+      WP_TESTS_DB_PASSWORD: root_password
+    volumes:
+      - ./mebuki-portfolio-manager:/app
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: mebuki-phpmyadmin
+    depends_on:
+      - db
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: root_password
+
+volumes:
+  db_data:

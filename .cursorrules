@@ -1,0 +1,29 @@
+# Mebuki Works Project Rules & Definition (Master)
+
+## 1. プロジェクト憲法 (Project Identity)
+- **プロダクト名**: Mebuki Works
+- **ターゲット**: 高単価クリエイター（MIX師・絵師）
+- **核心価値**: 手数料0%、自動見積もり、決済、タスク管理をスマホで完結させる独立特化型SaaS。
+- **提供形態**: ヘッドレスWordPressをバックエンドとしたSaaS形式。
+
+## 2. ディレクトリ構成の厳守 (Strict Directory Structure)
+- すべてのプラグインコードは `./mebuki-portfolio-manager/` 直下、またはそのサブディレクトリに配置すること。
+- **禁止事項**: 勝手に `plugin-code` や `code` といった名前の新しいルートディレクトリを作成しないこと。
+- Reactソースは `./mebuki-portfolio-manager/src-admin/` および `./mebuki-portfolio-manager/src-frontend/` に集約する。
+
+## 3. 技術スタック & 開発ルール
+- **Backend**: WordPress (PHP 8.x) + WP REST API
+- **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS
+- **Database**: MySQL 8.0 (JSON型を多用する設計)
+- **Security**: WP Nonce, sanitize_text_field, permission_callbackの徹底。
+- **ロジック分離**: ビジネスロジックはReactのUIから分離し、テスト可能なピュア関数として実装すること。
+- **SaaS拡張性**: すべてのテーブルに `user_id` を持ち、将来的なマルチテナント対応を前提とする。
+
+## 4. データモデル (厳守事項)
+1. **mebuki_pm_settings**: 設定JSON（テーマ、マスターデータ等）を格納。
+2. **mebuki_pm_orders**: 注文・見積もり・決済データ。UUIDによる冪等性確保。
+3. **mebuki_pm_reviews**: 口コミデータ。1作品1口コミ、最新上書き、WebP対応。
+
+## 5. 品質管理
+- **冪等性**: トランザクション系API（注文等）はUUIDを用いた二重送信防止を実装。
+- **自動テスト**: PHPUnitおよびGitHub ActionsによるCI環境を維持し、品質を客観的に証明すること。
