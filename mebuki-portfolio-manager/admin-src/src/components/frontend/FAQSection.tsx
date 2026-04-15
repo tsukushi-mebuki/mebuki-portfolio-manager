@@ -23,7 +23,7 @@ export function FAQSection( { items }: Props ) {
 		<section className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8" aria-labelledby="mebuki-faq-heading">
 			<h2
 				id="mebuki-faq-heading"
-				className="mb-10 font-[family-name:var(--mebuki-font-heading)] text-2xl font-semibold text-[var(--mebuki-text)] sm:text-3xl"
+				className="mebuki-section-title mebuki-faq-title mb-10 font-[family-name:var(--mebuki-font-heading)] text-2xl font-semibold text-[var(--mebuki-text)] sm:text-3xl"
 			>
 				FAQ
 			</h2>
@@ -33,7 +33,7 @@ export function FAQSection( { items }: Props ) {
 					return (
 						<div
 							key={ `${ row.question }-${ i }` }
-							className="rounded-[var(--mebuki-radius)] border border-[color-mix(in_srgb,var(--mebuki-text)_10%,transparent)] bg-[var(--mebuki-surface)] shadow-sm"
+							className="mebuki-faq-card rounded-[var(--mebuki-radius)] border border-[color-mix(in_srgb,var(--mebuki-text)_10%,transparent)] bg-[var(--mebuki-surface)] shadow-sm"
 						>
 							<button
 								type="button"
@@ -43,7 +43,7 @@ export function FAQSection( { items }: Props ) {
 							>
 								<span>{ row.question }</span>
 								<span
-									className={ `text-[var(--mebuki-accent)] transition ${ open ? 'rotate-180' : '' }` }
+									className={ `mebuki-faq-chevron text-[var(--mebuki-accent)] transition ${ open ? 'rotate-180' : '' }` }
 									aria-hidden
 								>
 									▼
