@@ -106,10 +106,22 @@ JA:
 EN:
 Run tests in plugin directory:
 `composer test`
+If Composer is not installed on host, run via Docker:
+`docker compose up -d`
+`docker compose exec db mysql -uroot -proot_password -e "CREATE DATABASE IF NOT EXISTS wordpress_test;"`
+`docker compose run --rm composer "composer install --no-interaction --prefer-dist"`
+`docker compose run --rm composer "curl -sSLo /tmp/install-wp-tests.sh https://raw.githubusercontent.com/wp-cli/scaffold-command/master/templates/install-wp-tests.sh && chmod +x /tmp/install-wp-tests.sh && /tmp/install-wp-tests.sh wordpress_test root root_password db latest true"`
+`docker compose exec wordpress sh -lc "cd /var/www/html/wp-content/plugins/mebuki-portfolio-manager && WP_TESTS_DIR=/tmp/wordpress-tests-lib WP_TESTS_DB_HOST=db WP_TESTS_DB_NAME=wordpress_test WP_TESTS_DB_USER=root WP_TESTS_DB_PASSWORD=root_password vendor/bin/phpunit -c phpunit.xml.dist"`
 
 JA:
 プラグインディレクトリでテスト実行:
 `composer test`
+Composer がホストにない場合は Docker 経由で実行:
+`docker compose up -d`
+`docker compose exec db mysql -uroot -proot_password -e "CREATE DATABASE IF NOT EXISTS wordpress_test;"`
+`docker compose run --rm composer "composer install --no-interaction --prefer-dist"`
+`docker compose run --rm composer "curl -sSLo /tmp/install-wp-tests.sh https://raw.githubusercontent.com/wp-cli/scaffold-command/master/templates/install-wp-tests.sh && chmod +x /tmp/install-wp-tests.sh && /tmp/install-wp-tests.sh wordpress_test root root_password db latest true"`
+`docker compose exec wordpress sh -lc "cd /var/www/html/wp-content/plugins/mebuki-portfolio-manager && WP_TESTS_DIR=/tmp/wordpress-tests-lib WP_TESTS_DB_HOST=db WP_TESTS_DB_NAME=wordpress_test WP_TESTS_DB_USER=root WP_TESTS_DB_PASSWORD=root_password vendor/bin/phpunit -c phpunit.xml.dist"`
 
 == Changelog ==
 

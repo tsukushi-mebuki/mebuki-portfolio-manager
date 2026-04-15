@@ -26,6 +26,7 @@ import { BasicSettingsCard } from './BasicSettingsCard';
 import { ReviewsSection } from './ReviewsSection';
 import { SortableSectionCard } from './SortableSectionCard';
 import {
+	CredoSectionEditor,
 	FaqSection,
 	LinkCardsSection,
 	PricingSection,
@@ -59,6 +60,8 @@ function renderSectionBody(
 			);
 		case 'link_cards':
 			return <LinkCardsSection form={ form } setForm={ setForm } />;
+		case 'credo':
+			return <CredoSectionEditor form={ form } setForm={ setForm } />;
 		case 'pricing':
 			return <PricingSection form={ form } setForm={ setForm } />;
 		case 'faq':

@@ -1,0 +1,33 @@
+# --- VCS / CI ---
+.git/
+.github/
+
+# --- Development source (build inputs) ---
+admin-src/
+tests/
+node_modules/
+
+# --- Tooling / local metadata ---
+.editorconfig
+.eslint*
+.prettier*
+.phpcs.xml*
+.phpunit.result.cache
+phpunit.xml*
+.DS_Store
+Thumbs.db
+
+# --- Documentation not required at runtime ---
+README.md
+
+# --- Package manager metadata (not required in runtime zip) ---
+composer.json
+composer.lock
+
+# --- Env / logs / temp ---
+.env
+.env.*
+*.log
+*.tmp
+*.swp
+

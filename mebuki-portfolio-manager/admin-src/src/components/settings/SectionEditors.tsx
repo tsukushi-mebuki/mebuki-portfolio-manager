@@ -135,6 +135,46 @@ export function LinkCardsSection( { form, setForm }: Props ) {
 	);
 }
 
+export function CredoSectionEditor( { form, setForm }: Props ) {
+	return (
+		<div className="space-y-3">
+			<div>
+				<label className="mb-1 block text-xs text-slate-600">見出し</label>
+				<input
+					type="text"
+					className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+					value={ form.credo.title }
+					onChange={ ( e ) =>
+						setForm( ( f ) => ( {
+							...f,
+							credo: { ...f.credo, title: e.target.value },
+						} ) )
+					}
+					placeholder="例: Credo / 大切にしていること"
+				/>
+			</div>
+			<div>
+				<label className="mb-1 block text-xs text-slate-600">本文</label>
+				<textarea
+					className="min-h-[140px] w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm leading-relaxed focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+					value={ form.credo.body }
+					onChange={ ( e ) =>
+						setForm( ( f ) => ( {
+							...f,
+							credo: { ...f.credo, body: e.target.value },
+						} ) )
+					}
+					placeholder="信条や大切にしていることを入力"
+				/>
+			</div>
+			<p className="text-xs text-slate-500">
+				クレドはプロフィールとは独立したセクションとして表示され、並び順は
+				セクションの DnD で変更できます。
+			</p>
+		</div>
+	);
+}
+
 export { PricingSection } from './PricingCategoriesEditor';
 
 export function FaqSection( { form, setForm }: Props ) {

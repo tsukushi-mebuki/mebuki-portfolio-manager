@@ -2,12 +2,18 @@ import type { ThemePresetId, ThemeTokens } from '../lib/themePresets';
 
 export type SectionId =
 	| 'about'
+	| 'credo'
 	| 'youtube_gallery'
 	| 'illustration_gallery'
 	| 'link_cards'
 	| 'pricing'
 	| 'faq'
 	| 'reviews';
+
+export interface CredoConfig {
+	title: string;
+	body: string;
+}
 
 /** YouTube / イラストギャラリー共通の1行（口コミ用 item_id） */
 export interface GalleryReviewItem {
@@ -61,6 +67,7 @@ export interface MebukiFormState {
 	theme_preset: ThemePresetId;
 	theme: ThemeTokens;
 	about: { items: AboutItem[] };
+	credo: CredoConfig;
 	youtube_gallery: { items: GalleryReviewItem[] };
 	illustration_gallery: { items: GalleryReviewItem[] };
 	link_cards: { items: LinkCardItem[] };
