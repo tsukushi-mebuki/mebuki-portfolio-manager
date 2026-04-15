@@ -17,6 +17,7 @@ import type { ThemePresetId } from './themePresets';
 
 export const ALL_SECTIONS: SectionId[] = [
 	'about',
+	'credo',
 	'youtube_gallery',
 	'illustration_gallery',
 	'link_cards',
@@ -27,6 +28,7 @@ export const ALL_SECTIONS: SectionId[] = [
 
 export const SECTION_LABELS: Record<SectionId, string> = {
 	about: '自己紹介（About）',
+	credo: 'クレド',
 	youtube_gallery: 'YouTubeギャラリー',
 	illustration_gallery: 'イラストギャラリー',
 	link_cards: 'リンクカード',
@@ -102,6 +104,17 @@ function pickAboutItems( raw: unknown ): AboutItem[] {
 	}
 
 	return [];
+}
+
+function pickCredo( raw: unknown ): { title: string; body: string } {
+	if ( ! raw || typeof raw !== 'object' ) {
+		return { title: '', body: '' };
+	}
+	const c = raw as Record<string, unknown>;
+	return {
+		title: typeof c.title === 'string' ? c.title : '',
+		body: typeof c.body === 'string' ? c.body : '',
+	};
 }
 
 function pickGalleryLineItems( raw: unknown ): GalleryReviewItem[] {
@@ -321,6 +334,7 @@ export function toFormState( raw: Record<string, unknown> | undefined ): MebukiF
 		theme_preset,
 		theme,
 		about: { items: pickAboutItems( r.about ) },
+		credo: pickCredo( r.credo ),
 		youtube_gallery: { items: pickGalleryLineItems( r.youtube_gallery ) },
 		illustration_gallery: {
 			items: pickGalleryLineItems( r.illustration_gallery ),
@@ -359,6 +373,7 @@ export function buildPayloadForApi( form: MebukiFormState ): Record<string, unkn
 				content: row.content,
 			} ) ),
 		},
+		credo: form.credo,
 		youtube_gallery: {
 			items: form.youtube_gallery.items.map( ( row ) => ( {
 				title: row.title,

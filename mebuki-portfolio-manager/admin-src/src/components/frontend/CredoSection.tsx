@@ -1,11 +1,11 @@
-import type { CredoConfig } from '../../frontend/normalizeViewModel';
+import type { CredoConfig } from '../../types/settings';
 
 type Props = {
-	credo: CredoConfig | null;
+	credo: CredoConfig;
 };
 
 export function CredoSection( { credo }: Props ) {
-	if ( ! credo ) {
+	if ( credo.title.trim() === '' && credo.body.trim() === '' ) {
 		return null;
 	}
 

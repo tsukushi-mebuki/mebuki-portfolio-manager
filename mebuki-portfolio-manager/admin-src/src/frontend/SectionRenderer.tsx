@@ -8,6 +8,7 @@ import { LinkCards } from '../components/frontend/LinkCards';
 import { PricingSection } from '../components/frontend/PricingSection';
 import { FAQSection } from '../components/frontend/FAQSection';
 import { ReviewSection } from '../components/frontend/ReviewSection';
+import { CredoSection } from '../components/frontend/CredoSection';
 
 type Props = {
 	sectionId: SectionId;
@@ -28,6 +29,7 @@ const SECTION_REGISTRY: Record<
 	( ctx: SectionRenderContext ) => ReactNode
 > = {
 	about: ( { vm } ) => <AboutSection items={ vm.about.items } />,
+	credo: ( { vm } ) => <CredoSection credo={ vm.credo } />,
 	'youtube_gallery': ( { vm, siteUrl } ) => (
 		<YouTubeGallery items={ vm.youtube_gallery.items } siteUrl={ siteUrl } />
 	),

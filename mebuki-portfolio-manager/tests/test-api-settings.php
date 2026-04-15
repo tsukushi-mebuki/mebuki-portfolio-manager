@@ -89,6 +89,89 @@ class Test_API_Settings extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Ensure credo fields and layout order are persisted correctly.
+	 *
+	 * @return void
+	 */
+	public function test_admin_can_save_credo_and_layout_order() {
+		$payload = array(
+			'layout_order' => array(
+				'about',
+				'credo',
+				'pricing',
+				'faq',
+				'youtube_gallery',
+				'illustration_gallery',
+				'link_cards',
+				'reviews',
+			),
+			'credo'        => array(
+				'title' => 'Our Credo',
+				'body'  => 'We value trust and craftsmanship.',
+			),
+		);
+
+		$request = new WP_REST_Request( 'POST', '/mebuki-pm/v1/settings' );
+		$request->set_body_params( $payload );
+
+		$response = rest_do_request( $request );
+		$this->assertSame( 200, $response->get_status() );
+
+		$data = $response->get_data();
+		$this->assertIsArray( $data );
+		$this->assertArrayHasKey( 'settings', $data );
+		$this->assertEquals(
+			$payload['layout_order'],
+			(array) $data['settings']->layout_order
+		);
+		$this->assertSame( 'Our Credo', $data['settings']->credo->title );
+		$this->assertSame(
+			'We value trust and craftsmanship.',
+			$data['settings']->credo->body
+		);
+
+		$stored = get_option( 'mebuki_pm_settings_' . $this->admin_user_id );
+		$this->assertIsArray( $stored );
+		$this->assertArrayHasKey( 'credo', $stored );
+		$this->assertArrayHasKey( 'layout_order', $stored );
+		$this->assertSame( 'Our Credo', $stored['credo']['title'] );
+		$this->assertSame(
+			'We value trust and craftsmanship.',
+			$stored['credo']['body']
+		);
+		$this->assertEquals( $payload['layout_order'], $stored['layout_order'] );
+	}
+
+	/**
+	 * /settings/me should also persist credo payload correctly.
+	 *
+	 * @return void
+	 */
+	public function test_admin_can_save_credo_via_settings_me_endpoint() {
+		$payload = array(
+			'credo' => array(
+				'title' => '信条',
+				'body'  => '丁寧な対話を大切にします。',
+			),
+		);
+
+		$request = new WP_REST_Request( 'POST', '/mebuki-pm/v1/settings/me' );
+		$request->set_body_params( $payload );
+
+		$response = rest_do_request( $request );
+		$this->assertSame( 200, $response->get_status() );
+
+		$stored = get_option( 'mebuki_pm_settings_' . $this->admin_user_id );
+		$this->assertIsArray( $stored );
+		$this->assertArrayHasKey( 'credo', $stored );
+		$this->assertSame( '信条', $stored['credo']['title'] );
+		$this->assertSame(
+			'丁寧な対話を大切にします。',
+			$stored['credo']['body']
+		);
+	}
+
+	/**
 	 * Ensure invalid endpoint format is rejected.
 	 *
 	 * @return void

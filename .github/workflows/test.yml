@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - develop
+      - "feature/**"
   pull_request:
 
 jobs:
@@ -39,6 +40,9 @@ jobs:
           php-version: "8.2"
           tools: composer:v2, phpunit
           coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist
 
       - name: Validate MySQL connection
         run: |
@@ -79,4 +83,4 @@ jobs:
           PHP
 
       - name: Run PHPUnit
-        run: phpunit -c phpunit.xml.dist
+        run: composer test

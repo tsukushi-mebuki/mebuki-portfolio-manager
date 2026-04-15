@@ -7,14 +7,8 @@ export type HeroConfig = {
 	cover_image_url: string;
 };
 
-export type CredoConfig = {
-	title: string;
-	body: string;
-};
-
 export interface FrontendViewModel extends MebukiFormState {
 	hero: HeroConfig | null;
-	credo: CredoConfig | null;
 }
 
 function pickHero( raw: Record<string, unknown> | undefined ): HeroConfig | null {
@@ -36,23 +30,6 @@ function pickHero( raw: Record<string, unknown> | undefined ): HeroConfig | null
 	return { title, subtitle, cover_image_url };
 }
 
-function pickCredo( raw: Record<string, unknown> | undefined ): CredoConfig | null {
-	if ( ! raw ) {
-		return null;
-	}
-	const c = raw.credo;
-	if ( ! c || typeof c !== 'object' ) {
-		return null;
-	}
-	const o = c as Record<string, unknown>;
-	const title = typeof o.title === 'string' ? o.title.trim() : '';
-	const body = typeof o.body === 'string' ? o.body.trim() : '';
-	if ( ! title && ! body ) {
-		return null;
-	}
-	return { title, body };
-}
-
 export function toFrontendViewModel(
 	raw: Record<string, unknown> | undefined
 ): FrontendViewModel {
@@ -61,6 +38,5 @@ export function toFrontendViewModel(
 	return {
 		...base,
 		hero: pickHero( r ),
-		credo: pickCredo( r ),
 	};
 }
