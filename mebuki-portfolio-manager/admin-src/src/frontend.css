@@ -1,3 +1,53 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+	.mebuki-section-title {
+		position: relative;
+	}
+
+	[data-theme='angel'] .mebuki-section-title::after {
+		content: '';
+		position: absolute;
+		left: 0;
+		bottom: -0.5rem;
+		width: 4.5rem;
+		height: 2px;
+		border-radius: 9999px;
+		background: linear-gradient(
+			90deg,
+			var(--mebuki-accent),
+			color-mix(in srgb, var(--mebuki-accent) 30%, transparent)
+		);
+		opacity: 0.85;
+	}
+
+	[data-theme='angel'] .mebuki-faq-card {
+		background: linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--mebuki-surface) 92%, #fff) 0%,
+			color-mix(in srgb, var(--mebuki-surface) 100%, transparent) 100%
+		);
+	}
+
+	[data-theme='cyber'] .mebuki-faq-title {
+		text-shadow:
+			0 0 10px color-mix(in srgb, var(--mebuki-accent) 42%, transparent),
+			0 0 24px color-mix(in srgb, var(--mebuki-accent) 20%, transparent);
+		letter-spacing: 0.01em;
+	}
+
+	[data-theme='cyber'] .mebuki-faq-card {
+		border-color: color-mix(in srgb, var(--mebuki-accent) 35%, transparent);
+		box-shadow:
+			inset 0 0 0 1px color-mix(in srgb, var(--mebuki-accent) 15%, transparent),
+			0 10px 28px color-mix(in srgb, #000 45%, transparent);
+	}
+
+	[data-theme='cyber'] .mebuki-faq-chevron {
+		filter: drop-shadow(
+			0 0 8px color-mix(in srgb, var(--mebuki-accent) 48%, transparent)
+		);
+	}
+}

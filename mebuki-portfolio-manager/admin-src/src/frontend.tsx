@@ -37,17 +37,14 @@ function themeToCssVars( theme: ThemeTokens ): CSSProperties {
 	} as CSSProperties;
 }
 
-function resolveInitialTheme(): ThemeTokens {
+function FrontendShell() {
 	const raw = window.mebukiPmSettings?.settings;
 	const preset = normalizeThemePreset( raw?.theme_preset );
-	return resolveThemeFromRaw( raw?.theme, preset );
-}
-
-function FrontendShell() {
-	const theme = resolveInitialTheme();
+	const theme = resolveThemeFromRaw( raw?.theme, preset );
 	return (
 		<div
 			className="min-h-screen font-[family-name:var(--mebuki-font-body)]"
+			data-theme={ preset }
 			style={ themeToCssVars( theme ) }
 		>
 			<FrontendApp />
