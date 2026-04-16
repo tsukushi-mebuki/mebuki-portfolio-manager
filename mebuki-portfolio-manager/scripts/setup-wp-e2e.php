@@ -55,23 +55,37 @@ if ( $wp_rewrite instanceof WP_Rewrite ) {
 $slug = 'portfolio-e2e';
 $page = get_page_by_path( $slug, OBJECT, 'page' );
 if ( ! $page ) {
-	wp_insert_post(
+	$new_id = wp_insert_post(
 		array(
 			'post_type'    => 'page',
 			'post_title'   => 'Portfolio E2E',
 			'post_name'    => $slug,
 			'post_status'  => 'publish',
 			'post_content' => '[mebuki_portfolio]',
-		)
+		),
+		true
 	);
+	if ( is_wp_error( $new_id ) ) {
+		fwrite( STDERR, 'wp_insert_post failed: ' . $new_id->get_error_message() . PHP_EOL );
+		exit( 1 );
+	}
+	if ( ! is_int( $new_id ) || $new_id <= 0 ) {
+		fwrite( STDERR, "wp_insert_post did not return a valid page ID.\n" );
+		exit( 1 );
+	}
 } else {
-	wp_update_post(
+	$updated = wp_update_post(
 		array(
 			'ID'           => $page->ID,
 			'post_status'  => 'publish',
 			'post_content' => '[mebuki_portfolio]',
-		)
+		),
+		true
 	);
+	if ( is_wp_error( $updated ) ) {
+		fwrite( STDERR, 'wp_update_post failed: ' . $updated->get_error_message() . PHP_EOL );
+		exit( 1 );
+	}
 }
 
 update_option( 'siteurl', $site_url );

@@ -15,15 +15,16 @@ services:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot_password"]
       interval: 5s
       timeout: 5s
-      retries: 12
-      start_period: 15s
+      retries: 30
+      start_period: 60s
 
   wordpress:
     image: wordpress:latest
     container_name: mebuki-wordpress
+    # DB の healthcheck 完了を待つと、初回ボリューム作成が遅い CI で wordpress が永遠に起動しないことがある。
+    # 公式イメージの entrypoint が DB 接続をリトライするので、単純な依存のみにする。
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     restart: unless-stopped
     ports:
       - "8000:80"

@@ -6,6 +6,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+docker compose ps 2>/dev/null || true
+
 SETUP_IN_CONTAINER="/var/www/html/wp-content/plugins/mebuki-portfolio-manager/scripts/setup-wp-e2e.php"
 E2E_BASE_URL="${E2E_BASE_URL:-http://localhost:8000}"
 
@@ -44,13 +46,4 @@ docker compose exec -T \
 echo "==> Verifying WordPress is installed..."
 docker compose exec -T wordpress php -r "require '/var/www/html/wp-load.php'; exit(is_blog_installed() ? 0 : 1);"
 
-echo "==> Verifying E2E portfolio page (REST)..."
-docker compose exec -T wordpress php -r "
-require '/var/www/html/wp-load.php';
-\$p = get_page_by_path('portfolio-e2e', OBJECT, 'page');
-if (!\$p || \$p->post_status !== 'publish') { fwrite(STDERR, \"E2E page missing\\n\"); exit(1); }
-if (strpos(\$p->post_content, 'mebuki_portfolio') === false) { fwrite(STDERR, \"E2E shortcode missing\\n\"); exit(1); }
-exit(0);
-"
-
-echo "==> E2E WordPress bootstrap complete."
+echo "==> E2E WordPress bootstrap complete (page + shortcode checks are in setup-wp-e2e.php)."

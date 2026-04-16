@@ -1,0 +1,2 @@
+# CI (Linux) で bash スクリプトが CRLF だと失敗するのを防ぐ
+*.sh text eol=lf
