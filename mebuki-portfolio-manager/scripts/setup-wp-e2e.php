@@ -33,6 +33,13 @@ if ( ! is_plugin_active( 'mebuki-portfolio-manager/mebuki-portfolio-manager.php'
 	activate_plugin( 'mebuki-portfolio-manager/mebuki-portfolio-manager.php' );
 }
 
+global $wp_rewrite;
+update_option( 'permalink_structure', '/%postname%/' );
+if ( $wp_rewrite instanceof WP_Rewrite ) {
+	$wp_rewrite->set_permalink_structure( '/%postname%/' );
+	$wp_rewrite->flush_rules( true );
+}
+
 $slug = 'portfolio-e2e';
 $page = get_page_by_path( $slug, OBJECT, 'page' );
 if ( ! $page ) {
