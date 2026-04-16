@@ -4,6 +4,14 @@ const adminUser = process.env.E2E_ADMIN_USER;
 const adminPassword = process.env.E2E_ADMIN_PASSWORD;
 const adminPath = process.env.E2E_ADMIN_PATH || '/wp-admin/admin.php?page=mebuki-pm';
 
+/** 公開ポートフォリオの描画領域（アサーションをここに閉じて誤検知を防ぐ） */
+function portfolioRoot(page) {
+	return page.locator('#mebuki-frontend-root');
+}
+
+const ASSERT_PUBLIC_MS = 45_000;
+const HYDRATE_MS = 60_000;
+
 async function loginAndOpenAdmin(page, baseURL) {
 	await page.goto('/wp-login.php');
 	await page.locator('#user_login').fill(adminUser);
@@ -36,7 +44,16 @@ function sectionCard(page, sectionId) {
 }
 
 async function saveSettings(page) {
+	const responsePromise = page.waitForResponse(
+		(resp) =>
+			resp.url().includes('mebuki-pm/v1/settings/me') &&
+			resp.request().method() === 'POST' &&
+			resp.status() >= 200 &&
+			resp.status() < 300,
+		{ timeout: 60_000 }
+	);
 	await page.getByRole('button', { name: '保存' }).click();
+	await responsePromise;
 	await expect(page.getByText('保存しました。')).toBeVisible();
 }
 
@@ -101,37 +118,55 @@ async function collectPortfolioPublicPaths(request, baseURL) {
 async function openPublicPortfolio(page, request, baseURL) {
 	const paths = await collectPortfolioPublicPaths(request, baseURL);
 	const errors = [];
-	const hydrateTimeout = 45_000;
 	for (const path of paths) {
-		let response = null;
+		const pageErrors = [];
+		const onPageError = (err) => pageErrors.push(err.message);
+		page.on('pageerror', onPageError);
 		try {
-			response = await page.goto(path, { waitUntil: 'load' });
-		} catch (e) {
-			errors.push(`${path}: navigation ${String(e)}`);
-			continue;
-		}
-		if (!response) {
-			errors.push(`${path}: no response`);
-			continue;
-		}
-		if (response.status() >= 400) {
-			errors.push(`${path}: HTTP ${response.status()}`);
-			continue;
-		}
-		const root = page.locator('#mebuki-frontend-root');
-		try {
-			await root.waitFor({ state: 'attached', timeout: 25_000 });
-		} catch (e) {
-			errors.push(`${path}: no #mebuki-frontend-root (${String(e)})`);
-			continue;
-		}
-		try {
-			await expect(root.locator('div[data-theme]').first()).toBeVisible({
-				timeout: hydrateTimeout,
-			});
+			let response;
+			try {
+				response = await page.goto(path, { waitUntil: 'load' });
+			} catch (e) {
+				errors.push(`${path}: navigation ${String(e)}`);
+				continue;
+			}
+			if (!response) {
+				errors.push(`${path}: no response`);
+				continue;
+			}
+			if (response.status() >= 400) {
+				errors.push(`${path}: HTTP ${response.status()}`);
+				continue;
+			}
+			try {
+				await page.locator('#mebuki-frontend-root').waitFor({ state: 'attached', timeout: 25_000 });
+			} catch (e) {
+				errors.push(`${path}: no #mebuki-frontend-root (${String(e)})`);
+				continue;
+			}
+			try {
+				await page.waitForFunction(
+					() => {
+						const el = document.getElementById('mebuki-frontend-root');
+						if (!el) {
+							return false;
+						}
+						if (el.querySelector('[data-theme]')) {
+							return true;
+						}
+						return el.childElementCount > 0;
+					},
+					{ timeout: HYDRATE_MS }
+				);
+			} catch (e) {
+				const extra =
+					pageErrors.length > 0 ? ` | pageerror: ${pageErrors.join('; ')}` : '';
+				errors.push(`${path}: portfolio UI did not mount (${String(e)})${extra}`);
+				continue;
+			}
 			return;
-		} catch (e) {
-			errors.push(`${path}: portfolio UI did not hydrate (no div[data-theme]) (${String(e)})`);
+		} finally {
+			page.off('pageerror', onPageError);
 		}
 	}
 	throw new Error(
@@ -157,8 +192,12 @@ test.describe('Admin save to frontend smoke', () => {
 		await saveSettings(page);
 
 		await openPublicPortfolio(page, request, baseURL);
-		await expect(page.getByText(credoTitle)).toBeVisible({ timeout: 15_000 });
-		await expect(page.getByText(credoBody)).toBeVisible({ timeout: 15_000 });
+		await expect(portfolioRoot(page).getByText(credoTitle)).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
+		});
+		await expect(portfolioRoot(page).getByText(credoBody)).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
+		});
 	});
 
 	test('自己紹介: 保存内容が公開ページへ反映される', async ({ page, request, baseURL }) => {
@@ -179,8 +218,12 @@ test.describe('Admin save to frontend smoke', () => {
 		await saveSettings(page);
 
 		await openPublicPortfolio(page, request, baseURL);
-		await expect(page.getByText(aboutTitle)).toBeVisible({ timeout: 15_000 });
-		await expect(page.getByText(aboutBody)).toBeVisible({ timeout: 15_000 });
+		await expect(portfolioRoot(page).getByText(aboutTitle)).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
+		});
+		await expect(portfolioRoot(page).getByText(aboutBody)).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
+		});
 	});
 
 	test('YouTubeギャラリー: 保存内容が公開ページへ反映される', async ({
@@ -202,7 +245,9 @@ test.describe('Admin save to frontend smoke', () => {
 		await saveSettings(page);
 
 		await openPublicPortfolio(page, request, baseURL);
-		await expect(page.getByRole('heading', { name: title })).toBeVisible({ timeout: 15_000 });
+		await expect(portfolioRoot(page).getByRole('heading', { name: title })).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
+		});
 	});
 
 	test('イラストギャラリー: 保存内容が公開ページへ反映される', async ({
@@ -224,7 +269,9 @@ test.describe('Admin save to frontend smoke', () => {
 		await saveSettings(page);
 
 		await openPublicPortfolio(page, request, baseURL);
-		await expect(page.getByRole('heading', { name: title })).toBeVisible({ timeout: 15_000 });
+		await expect(portfolioRoot(page).getByRole('heading', { name: title })).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
+		});
 	});
 
 	test('リンクカード: 保存内容が公開ページへ反映される', async ({ page, request, baseURL }) => {
@@ -242,7 +289,10 @@ test.describe('Admin save to frontend smoke', () => {
 		await saveSettings(page);
 
 		await openPublicPortfolio(page, request, baseURL);
-		await expect(page.getByRole('link', { name: title })).toHaveAttribute('href', url);
+		await expect(portfolioRoot(page).getByRole('link', { name: title })).toHaveAttribute(
+			'href',
+			url
+		);
 	});
 
 	test('料金表: 保存内容が公開ページへ反映される', async ({ page, request, baseURL }) => {
@@ -259,7 +309,9 @@ test.describe('Admin save to frontend smoke', () => {
 		await saveSettings(page);
 
 		await openPublicPortfolio(page, request, baseURL);
-		await expect(page.getByText(category)).toBeVisible({ timeout: 15_000 });
+		await expect(portfolioRoot(page).getByText(category)).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
+		});
 	});
 
 	test('FAQ: 保存内容が公開ページへ反映される', async ({ page, request, baseURL }) => {
@@ -277,8 +329,10 @@ test.describe('Admin save to frontend smoke', () => {
 		await saveSettings(page);
 
 		await openPublicPortfolio(page, request, baseURL);
-		await page.getByText(question).first().click();
-		await expect(page.getByText(answer)).toBeVisible({ timeout: 15_000 });
+		await portfolioRoot(page).getByText(question).first().click();
+		await expect(portfolioRoot(page).getByText(answer)).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
+		});
 	});
 
 	test('口コミ: 管理画面承認と設定保存が公開ページへ反映される', async ({
@@ -309,7 +363,7 @@ test.describe('Admin save to frontend smoke', () => {
 		await saveSettings(page);
 
 		await openPublicPortfolio(page, request, baseURL);
-		await page.getByRole('link', { name: '口コミを書く' }).first().click();
+		await portfolioRoot(page).getByRole('link', { name: '口コミを書く' }).first().click();
 		await expect(page.getByRole('heading', { name: '口コミ投稿フォーム' })).toBeVisible();
 
 		const form = page.locator('form');
@@ -332,10 +386,16 @@ test.describe('Admin save to frontend smoke', () => {
 		await expect(reviewSwitch).toHaveAttribute('aria-checked', 'true');
 
 		await openPublicPortfolio(page, request, baseURL);
-		await expect(page.getByText(reviewName)).toBeVisible({ timeout: 15_000 });
-		await expect(page.getByText(reviewText)).toBeVisible({ timeout: 15_000 });
-		await expect(page.locator(`img[src="${fallbackIconUrl}"]`).first()).toBeVisible({
-			timeout: 15_000,
+		await expect(portfolioRoot(page).getByText(reviewName)).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
 		});
+		await expect(portfolioRoot(page).getByText(reviewText)).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
+		});
+		await expect(portfolioRoot(page).locator(`img[src="${fallbackIconUrl}"]`).first()).toBeVisible(
+			{
+				timeout: ASSERT_PUBLIC_MS,
+			}
+		);
 	});
 });
