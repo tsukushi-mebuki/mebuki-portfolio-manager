@@ -229,4 +229,125 @@ class Test_API_Settings extends WP_UnitTestCase {
 		$this->assertArrayHasKey( 'code', $get_data );
 		$this->assertArrayHasKey( 'code', $post_data );
 	}
+
+	/**
+	 * Ensure admin form-like payload is preserved across POST -> DB -> GET.
+	 *
+	 * @return void
+	 */
+	public function test_settings_me_roundtrip_preserves_admin_input_payload() {
+		global $wpdb;
+
+		$payload = array(
+			'layout_order'             => array(
+				'about',
+				'credo',
+				'youtube_gallery',
+				'illustration_gallery',
+				'link_cards',
+				'pricing',
+				'faq',
+				'reviews',
+			),
+			'about'                    => array(
+				'items' => array(
+					array(
+						'title'   => 'プロフィール',
+						'content' => '音楽制作を担当しています。',
+					),
+				),
+			),
+			'credo'                    => array(
+				'title' => '制作方針',
+				'body'  => '丁寧なコミュニケーションを重視します。',
+			),
+			'youtube_gallery'          => array(
+				'items' => array(
+					array(
+						'title'   => '歌ってみたMix',
+						'url'     => 'https://www.youtube.com/watch?v=abc123',
+						'item_id' => 'yt-item-001',
+					),
+				),
+			),
+			'illustration_gallery'     => array(
+				'items' => array(
+					array(
+						'title'   => '立ち絵サンプル',
+						'url'     => 'https://example.com/illust.webp',
+						'item_id' => 'illust-item-001',
+					),
+				),
+			),
+			'link_cards'               => array(
+				'items' => array(
+					array(
+						'title'         => 'X',
+						'url'           => 'https://x.com/example',
+						'thumbnail_url' => 'https://example.com/thumb.png',
+					),
+				),
+			),
+			'pricing'                  => array(
+				'categories' => array(),
+			),
+			'faq'                      => array(
+				'items' => array(
+					array(
+						'question' => '納期はどれくらいですか？',
+						'answer'   => '通常7日です。',
+					),
+				),
+			),
+			'stripe_public_key'        => 'pk_test_123',
+			'stripe_secret_key'        => 'sk_test_123',
+			'stripe_webhook_secret'    => 'whsec_123',
+			'admin_email'              => 'owner@example.com',
+			'portfolio_site_url'       => 'https://portfolio.example.com',
+			'review_fallback_icon_url' => 'https://example.com/reviewer.png',
+			'show_reviews_under_items' => true,
+		);
+
+		$post_request = new WP_REST_Request( 'POST', '/mebuki-pm/v1/settings/me' );
+		$post_request->set_header( 'Content-Type', 'application/json' );
+		$post_request->set_body( wp_json_encode( $payload ) );
+		$post_response = rest_do_request( $post_request );
+		$this->assertSame( 200, $post_response->get_status() );
+
+		$table_name = $wpdb->prefix . 'mebuki_pm_settings';
+		$row        = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT setting_json FROM {$table_name} WHERE user_id = %d ORDER BY id DESC LIMIT 1",
+				$this->admin_user_id
+			),
+			ARRAY_A
+		);
+		$this->assertIsArray( $row );
+		$this->assertArrayHasKey( 'setting_json', $row );
+		$this->assertNotEmpty( $row['setting_json'] );
+
+		$decoded = json_decode( $row['setting_json'], true );
+		$this->assertIsArray( $decoded );
+		$this->assertSame( '制作方針', $decoded['credo']['title'] );
+		$this->assertSame( 'yt-item-001', $decoded['youtube_gallery']['items'][0]['item_id'] );
+		$this->assertTrue( (bool) $decoded['show_reviews_under_items'] );
+
+		$get_request  = new WP_REST_Request( 'GET', '/mebuki-pm/v1/settings/me' );
+		$get_response = rest_do_request( $get_request );
+		$this->assertSame( 200, $get_response->get_status() );
+		$data = $get_response->get_data();
+
+		$this->assertIsArray( $data );
+		$this->assertArrayHasKey( 'settings', $data );
+		$this->assertSame( '制作方針', $data['settings']->credo->title );
+		$this->assertSame(
+			'yt-item-001',
+			$data['settings']->youtube_gallery->items[0]->item_id
+		);
+		$this->assertSame(
+			'https://portfolio.example.com',
+			$data['settings']->portfolio_site_url
+		);
+		$this->assertTrue( (bool) $data['settings']->show_reviews_under_items );
+	}
 }
