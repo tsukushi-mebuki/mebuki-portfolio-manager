@@ -25,15 +25,20 @@ test.describe('Admin save to frontend smoke', () => {
 		await page.goto(new URL(adminPath, baseURL).toString());
 		await expect(page.getByRole('heading', { name: 'サイト表示マスター' })).toBeVisible();
 
-		const addButton = page.getByRole('button', {
+		const aboutCard = page
+			.locator('div')
+			.filter({ has: page.getByRole('heading', { name: '自己紹介（About）' }) })
+			.first();
+
+		const addButton = aboutCard.getByRole('button', {
 			name: '＋ タイトル＋本文のブロックを追加',
 		});
 		if (await addButton.count()) {
 			await addButton.first().click();
 		}
 
-		await page.locator('label:has-text("タイトル") + input').first().fill(aboutTitle);
-		await page.locator('label:has-text("本文") + textarea').first().fill(aboutBody);
+		await aboutCard.locator('label:has-text("タイトル") + input').first().fill(aboutTitle);
+		await aboutCard.locator('label:has-text("本文") + textarea').first().fill(aboutBody);
 
 		await page.getByRole('button', { name: '保存' }).click();
 		await expect(page.getByText('保存しました。')).toBeVisible();
