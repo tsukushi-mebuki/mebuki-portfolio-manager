@@ -9,7 +9,12 @@ export default defineConfig({
 	timeout: 60_000,
 	use: {
 		baseURL,
-		trace: 'on-first-retry',
+		trace: 'retain-on-failure',
+		screenshot: 'only-on-failure',
+		video: 'retain-on-failure',
 	},
-	reporter: [['list']],
+	reporter: [
+		['list'],
+		['html', { outputFolder: 'playwright-report', open: 'never' }],
+	],
 });

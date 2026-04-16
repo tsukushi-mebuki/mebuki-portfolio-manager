@@ -3,7 +3,86 @@ import { expect, test } from '@playwright/test';
 const adminUser = process.env.E2E_ADMIN_USER;
 const adminPassword = process.env.E2E_ADMIN_PASSWORD;
 const adminPath = process.env.E2E_ADMIN_PATH || '/wp-admin/admin.php?page=mebuki-pm';
-const frontendPath = process.env.E2E_FRONTEND_PATH || '/';
+
+async function loginAndOpenAdmin(page, baseURL) {
+	await page.goto('/wp-login.php');
+	await page.locator('#user_login').fill(adminUser);
+	await page.locator('#user_pass').fill(adminPassword);
+	await page.locator('#wp-submit').click();
+	await page.waitForURL(/wp-admin/);
+	await page.goto(new URL(adminPath, baseURL).toString());
+	await expect(page.getByRole('heading', { name: 'サイト表示マスター' })).toBeVisible();
+}
+
+const sectionTitleById = {
+	credo: 'クレド',
+	about: '自己紹介（About）',
+	youtube_gallery: 'YouTubeギャラリー',
+	illustration_gallery: 'イラストギャラリー',
+	link_cards: 'リンクカード',
+	pricing: '料金表',
+	faq: 'FAQ',
+	reviews: '口コミ',
+};
+
+function sectionCard(page, sectionId) {
+	const title = sectionTitleById[sectionId];
+	const byDataId = page.locator(`[data-section-id="${sectionId}"]`).first();
+	const byHeading = page
+		.locator('div')
+		.filter({ has: page.getByRole('heading', { name: title }) })
+		.first();
+	return byDataId.or(byHeading);
+}
+
+async function saveSettings(page) {
+	await page.getByRole('button', { name: '保存' }).click();
+	await expect(page.getByText('保存しました。')).toBeVisible();
+}
+
+/**
+ * 公開側で [mebuki_portfolio] が描画されるURLを決める。
+ * - E2E_FRONTEND_PATH があれば最優先（CIや任意スラッグ向け）
+ * - 未設定なら REST で slug=portfolio-e2e（setup-wp-e2e.php が作成）を解決
+ */
+async function resolvePortfolioPublicPath(request, baseURL) {
+	const env = (process.env.E2E_FRONTEND_PATH || '').trim();
+	if (env) {
+		return env.startsWith('/') ? env : `/${env}`;
+	}
+	const base = String(baseURL ?? '').replace(/\/$/, '');
+	if (!base) {
+		throw new Error('Playwright の baseURL が空です。E2E_BASE_URL を設定してください。');
+	}
+	const res = await request.get(`${base}/wp-json/wp/v2/pages`, {
+		params: { slug: 'portfolio-e2e', per_page: '1' },
+	});
+	if (!res.ok()) {
+		throw new Error(
+			`WP REST が ${res.status()} を返しました。E2E_BASE_URL と WordPress の起動を確認してください。`
+		);
+	}
+	const pages = await res.json();
+	if (Array.isArray(pages) && pages[0]?.link) {
+		return new URL(pages[0].link).pathname || '/';
+	}
+	throw new Error(
+		'slug `portfolio-e2e` の固定ページが見つかりません。scripts/setup-wp-e2e.php を実行するか、E2E_FRONTEND_PATH を設定してください。'
+	);
+}
+
+/** ショートコード付き公開ページを開き、React マウント先が存在することを確認する */
+async function openPublicPortfolio(page, request, baseURL) {
+	const path = await resolvePortfolioPublicPath(request, baseURL);
+	const response = await page.goto(path);
+	expect(response, `公開ページへ遷移できませんでした: ${path}`).toBeTruthy();
+	if (response.status() >= 400) {
+		throw new Error(
+			`公開ページ ${path} が HTTP ${response.status()} を返しました。固定ページ・パーマリンク・E2E_FRONTEND_PATH を確認してください。`
+		);
+	}
+	await expect(page.locator('#mebuki-frontend-root')).toBeAttached({ timeout: 25_000 });
+}
 
 test.describe('Admin save to frontend smoke', () => {
 	test.skip(
@@ -11,40 +90,197 @@ test.describe('Admin save to frontend smoke', () => {
 		'E2E_ADMIN_USER / E2E_ADMIN_PASSWORD are required.'
 	);
 
-	test('管理画面で保存したAboutが公開ページに表示される', async ({ page, baseURL }) => {
+	test('クレド: 保存内容が公開ページへ反映される', async ({ page, request, baseURL }) => {
+		const marker = Date.now().toString();
+		const credoTitle = `E2E Credo ${marker}`;
+		const credoBody = `E2E Credo Body ${marker}`;
+
+		await loginAndOpenAdmin(page, baseURL);
+		const card = sectionCard(page, 'credo');
+		await card.getByPlaceholder('例: Credo / 大切にしていること').fill(credoTitle);
+		await card.getByPlaceholder('信条や大切にしていることを入力').fill(credoBody);
+		await saveSettings(page);
+
+		await openPublicPortfolio(page, request, baseURL);
+		await expect(page.getByText(credoTitle)).toBeVisible({ timeout: 15_000 });
+		await expect(page.getByText(credoBody)).toBeVisible({ timeout: 15_000 });
+	});
+
+	test('自己紹介: 保存内容が公開ページへ反映される', async ({ page, request, baseURL }) => {
 		const marker = Date.now().toString();
 		const aboutTitle = `E2E About ${marker}`;
-		const aboutBody = `E2E Body ${marker}`;
+		const aboutBody = `E2E About Body ${marker}`;
 
-		await page.goto('/wp-login.php');
-		await page.locator('#user_login').fill(adminUser);
-		await page.locator('#user_pass').fill(adminPassword);
-		await page.locator('#wp-submit').click();
-		await page.waitForURL(/wp-admin/);
+		await loginAndOpenAdmin(page, baseURL);
+		const card = sectionCard(page, 'about');
+		const addButton = card.getByRole('button', {
+			name: '＋ タイトル＋本文のブロックを追加',
+		});
+		if ((await card.getByPlaceholder('例: 機材紹介').count()) === 0) {
+			await addButton.click();
+		}
+		await card.getByPlaceholder('例: 機材紹介').first().fill(aboutTitle);
+		await card.getByPlaceholder('このブロックの本文').first().fill(aboutBody);
+		await saveSettings(page);
+
+		await openPublicPortfolio(page, request, baseURL);
+		await expect(page.getByText(aboutTitle)).toBeVisible({ timeout: 15_000 });
+		await expect(page.getByText(aboutBody)).toBeVisible({ timeout: 15_000 });
+	});
+
+	test('YouTubeギャラリー: 保存内容が公開ページへ反映される', async ({
+		page,
+		request,
+		baseURL,
+	}) => {
+		const marker = Date.now().toString();
+		const title = `E2E YouTube ${marker}`;
+		const url = `https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=${marker.slice(-4)}`;
+
+		await loginAndOpenAdmin(page, baseURL);
+		const card = sectionCard(page, 'youtube_gallery');
+		if ((await card.getByPlaceholder('表示名').count()) === 0) {
+			await card.getByRole('button', { name: '＋ 動画を追加' }).click();
+		}
+		await card.getByPlaceholder('表示名').first().fill(title);
+		await card.getByPlaceholder('https://www.youtube.com/watch?v=...').first().fill(url);
+		await saveSettings(page);
+
+		await openPublicPortfolio(page, request, baseURL);
+		await expect(page.getByRole('heading', { name: title })).toBeVisible({ timeout: 15_000 });
+	});
+
+	test('イラストギャラリー: 保存内容が公開ページへ反映される', async ({
+		page,
+		request,
+		baseURL,
+	}) => {
+		const marker = Date.now().toString();
+		const title = `E2E Illust ${marker}`;
+		const url = `https://example.com/e2e-${marker}.jpg`;
+
+		await loginAndOpenAdmin(page, baseURL);
+		const card = sectionCard(page, 'illustration_gallery');
+		if ((await card.getByPlaceholder('表示名').count()) === 0) {
+			await card.getByRole('button', { name: '＋ イラストを追加' }).click();
+		}
+		await card.getByPlaceholder('表示名').first().fill(title);
+		await card.getByPlaceholder('https://...').first().fill(url);
+		await saveSettings(page);
+
+		await openPublicPortfolio(page, request, baseURL);
+		await expect(page.getByRole('heading', { name: title })).toBeVisible({ timeout: 15_000 });
+	});
+
+	test('リンクカード: 保存内容が公開ページへ反映される', async ({ page, request, baseURL }) => {
+		const marker = Date.now().toString();
+		const title = `E2E Link ${marker}`;
+		const url = `https://example.com/e2e-link-${marker}`;
+
+		await loginAndOpenAdmin(page, baseURL);
+		const card = sectionCard(page, 'link_cards');
+		if ((await card.getByPlaceholder('リンクタイトル').count()) === 0) {
+			await card.getByRole('button', { name: '＋ リンクカードを追加' }).click();
+		}
+		await card.getByPlaceholder('リンクタイトル').first().fill(title);
+		await card.getByPlaceholder('https://...').first().fill(url);
+		await saveSettings(page);
+
+		await openPublicPortfolio(page, request, baseURL);
+		await expect(page.getByRole('link', { name: title })).toHaveAttribute('href', url);
+	});
+
+	test('料金表: 保存内容が公開ページへ反映される', async ({ page, request, baseURL }) => {
+		const marker = Date.now().toString();
+		const category = `E2E Category ${marker}`;
+
+		await loginAndOpenAdmin(page, baseURL);
+		const card = sectionCard(page, 'pricing');
+
+		if ((await card.getByPlaceholder('例: イラスト制作').count()) === 0) {
+			await card.getByRole('button', { name: '＋ カテゴリを追加' }).click();
+		}
+		await card.getByPlaceholder('例: イラスト制作').first().fill(category);
+		await saveSettings(page);
+
+		await openPublicPortfolio(page, request, baseURL);
+		await expect(page.getByText(category)).toBeVisible({ timeout: 15_000 });
+	});
+
+	test('FAQ: 保存内容が公開ページへ反映される', async ({ page, request, baseURL }) => {
+		const marker = Date.now().toString();
+		const question = `E2E FAQ Q ${marker}`;
+		const answer = `E2E FAQ A ${marker}`;
+
+		await loginAndOpenAdmin(page, baseURL);
+		const card = sectionCard(page, 'faq');
+		if ((await card.locator('input[type="text"]').count()) === 0) {
+			await card.getByRole('button', { name: '＋ FAQ を追加' }).click();
+		}
+		await card.locator('input[type="text"]').first().fill(question);
+		await card.locator('textarea').first().fill(answer);
+		await saveSettings(page);
+
+		await openPublicPortfolio(page, request, baseURL);
+		await page.getByText(question).first().click();
+		await expect(page.getByText(answer)).toBeVisible({ timeout: 15_000 });
+	});
+
+	test('口コミ: 管理画面承認と設定保存が公開ページへ反映される', async ({
+		page,
+		request,
+		baseURL,
+	}) => {
+		const marker = Date.now().toString();
+		const youtubeTitle = `E2E Review Source ${marker}`;
+		const reviewName = `E2E Reviewer ${marker}`;
+		const reviewText = `E2E Review Body ${marker}`;
+		const fallbackIconUrl = `https://example.com/fallback-${marker}.png`;
+
+		await loginAndOpenAdmin(page, baseURL);
+
+		const youtubeCard = sectionCard(page, 'youtube_gallery');
+		if ((await youtubeCard.getByPlaceholder('表示名').count()) === 0) {
+			await youtubeCard.getByRole('button', { name: '＋ 動画を追加' }).click();
+		}
+		await youtubeCard.getByPlaceholder('表示名').first().fill(youtubeTitle);
+		await youtubeCard
+			.getByPlaceholder('https://www.youtube.com/watch?v=...')
+			.first()
+			.fill('https://www.youtube.com/watch?v=aqz-KE-bpKQ');
+
+		const reviewsCard = sectionCard(page, 'reviews');
+		await reviewsCard.locator('#review-fallback-icon-url').fill(fallbackIconUrl);
+		await saveSettings(page);
+
+		await openPublicPortfolio(page, request, baseURL);
+		await page.getByRole('link', { name: '口コミを書く' }).first().click();
+		await expect(page.getByRole('heading', { name: '口コミ投稿フォーム' })).toBeVisible();
+
+		const form = page.locator('form');
+		await form.locator('input[type="text"]').first().fill(reviewName);
+		await form.locator('textarea').first().fill(reviewText);
+		await page.getByRole('button', { name: '口コミを投稿する' }).click();
+		await expect(page.getByText('口コミを送信しました。')).toBeVisible({ timeout: 15_000 });
 
 		await page.goto(new URL(adminPath, baseURL).toString());
 		await expect(page.getByRole('heading', { name: 'サイト表示マスター' })).toBeVisible();
 
-		const aboutCard = page
-			.locator('div')
-			.filter({ has: page.getByRole('heading', { name: '自己紹介（About）' }) })
-			.first();
-
-		const addButton = aboutCard.getByRole('button', {
-			name: '＋ タイトル＋本文のブロックを追加',
-		});
-		if (await addButton.count()) {
-			await addButton.first().click();
+		const reviewRow = sectionCard(page, 'reviews').locator('div').filter({
+			hasText: reviewName,
+		}).first();
+		const reviewSwitch = reviewRow.locator('button[role="switch"]');
+		await expect(reviewSwitch).toBeVisible({ timeout: 15_000 });
+		if ((await reviewSwitch.getAttribute('aria-checked')) !== 'true') {
+			await reviewSwitch.click();
 		}
+		await expect(reviewSwitch).toHaveAttribute('aria-checked', 'true');
 
-		await aboutCard.locator('label:has-text("タイトル") + input').first().fill(aboutTitle);
-		await aboutCard.locator('label:has-text("本文") + textarea').first().fill(aboutBody);
-
-		await page.getByRole('button', { name: '保存' }).click();
-		await expect(page.getByText('保存しました。')).toBeVisible();
-
-		await page.goto(new URL(frontendPath, baseURL).toString());
-		await expect(page.getByText(aboutTitle)).toBeVisible({ timeout: 15_000 });
-		await expect(page.getByText(aboutBody)).toBeVisible({ timeout: 15_000 });
+		await openPublicPortfolio(page, request, baseURL);
+		await expect(page.getByText(reviewName)).toBeVisible({ timeout: 15_000 });
+		await expect(page.getByText(reviewText)).toBeVisible({ timeout: 15_000 });
+		await expect(page.locator(`img[src="${fallbackIconUrl}"]`).first()).toBeVisible({
+			timeout: 15_000,
+		});
 	});
 });
