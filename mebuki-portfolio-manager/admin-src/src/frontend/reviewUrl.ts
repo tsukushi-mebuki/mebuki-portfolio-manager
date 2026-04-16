@@ -10,9 +10,8 @@ export function buildReviewWriteUrl(
 	if ( base === '' ) {
 		return '#';
 	}
-	const withSlash = base.endsWith( '/' ) ? base : `${ base }/`;
 	try {
-		const u = new URL( withSlash );
+		const u = new URL( 'reviews/', base.endsWith( '/' ) ? base : `${ base }/` );
 		u.searchParams.set( 'mebuki_review_target', itemType );
 		u.searchParams.set( 'item_id', itemId );
 		return u.toString();
