@@ -1,43 +1,11 @@
-import { useEffect, useState } from 'react';
 import type { ReviewRow } from '../../types/settings';
-import { publishedReviewsUrl } from '../../frontend/restUrl';
 
-export function ReviewSection() {
-	const [ reviews, setReviews ] = useState<ReviewRow[] | null>( null );
+type Props = {
+	reviews: ReviewRow[] | null;
+	fallbackIconUrl: string;
+};
 
-	useEffect( () => {
-		const root = window.mebukiPmSettings?.root;
-		const uid = window.mebukiPmSettings?.portfolioUserId;
-		if ( ! root || uid === undefined || uid === null || uid <= 0 ) {
-			setReviews( [] );
-			return;
-		}
-		let cancelled = false;
-		( async () => {
-			try {
-				const res = await fetch( publishedReviewsUrl( root, uid ), {
-					credentials: 'same-origin',
-					headers: { Accept: 'application/json' },
-				} );
-				if ( ! res.ok ) {
-					throw new Error( 'fetch failed' );
-				}
-				const data = ( await res.json() ) as { reviews?: ReviewRow[] };
-				const list = Array.isArray( data.reviews ) ? data.reviews : [];
-				if ( ! cancelled ) {
-					setReviews( list );
-				}
-			} catch {
-				if ( ! cancelled ) {
-					setReviews( [] );
-				}
-			}
-		} )();
-		return () => {
-			cancelled = true;
-		};
-	}, [] );
-
+export function ReviewSection( { reviews, fallbackIconUrl }: Props ) {
 	if ( reviews === null ) {
 		return (
 			<section
@@ -71,9 +39,14 @@ export function ReviewSection() {
 						className="rounded-[var(--mebuki-radius)] border border-[color-mix(in_srgb,var(--mebuki-text)_10%,transparent)] bg-[var(--mebuki-surface)] p-5 shadow-sm"
 					>
 						<div className="flex gap-4">
-							{ row.reviewer_thumbnail_url.trim() !== '' ? (
+							{ row.reviewer_thumbnail_url.trim() !== '' ||
+							fallbackIconUrl.trim() !== '' ? (
 								<img
-									src={ row.reviewer_thumbnail_url }
+									src={
+										row.reviewer_thumbnail_url.trim() !== ''
+											? row.reviewer_thumbnail_url
+											: fallbackIconUrl
+									}
 									alt=""
 									className="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-[color-mix(in_srgb,var(--mebuki-accent)_25%,transparent)]"
 									loading="lazy"

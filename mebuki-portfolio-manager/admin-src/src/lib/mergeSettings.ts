@@ -353,6 +353,11 @@ export function toFormState( raw: Record<string, unknown> | undefined ): MebukiF
 		admin_email: typeof r.admin_email === 'string' ? r.admin_email : '',
 		portfolio_site_url:
 			typeof r.portfolio_site_url === 'string' ? r.portfolio_site_url : '',
+		review_fallback_icon_url:
+			typeof r.review_fallback_icon_url === 'string'
+				? r.review_fallback_icon_url
+				: '',
+		show_reviews_under_items: Boolean( r.show_reviews_under_items ),
 		api_key: typeof r.api_key === 'string' ? r.api_key : undefined,
 		endpoint: typeof r.endpoint === 'string' ? r.endpoint : undefined,
 	};
@@ -406,6 +411,8 @@ export function buildPayloadForApi( form: MebukiFormState ): Record<string, unkn
 		stripe_webhook_secret: form.stripe_webhook_secret,
 		admin_email: form.admin_email,
 		portfolio_site_url: form.portfolio_site_url,
+		review_fallback_icon_url: form.review_fallback_icon_url,
+		show_reviews_under_items: form.show_reviews_under_items,
 	};
 
 	if ( form.api_key !== undefined ) {

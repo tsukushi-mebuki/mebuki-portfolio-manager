@@ -1,9 +1,14 @@
 import type { GalleryReviewItem } from '../../types/settings';
+import type { ReviewRow } from '../../types/settings';
 import { ReviewWriteButton } from './ReviewWriteButton';
+import { ItemReviewsBlock } from './ItemReviewsBlock';
 
 type Props = {
 	items: GalleryReviewItem[];
 	siteUrl: string;
+	publishedReviews: ReviewRow[];
+	showReviewsUnderItems: boolean;
+	reviewFallbackIconUrl: string;
 };
 
 function isImageUrl( url: string ): boolean {
@@ -15,7 +20,21 @@ function isImageUrl( url: string ): boolean {
 	);
 }
 
-export function IllustrationGallery( { items, siteUrl }: Props ) {
+function toEpochMs( v: string | null ): number {
+	if ( ! v ) {
+		return 0;
+	}
+	const t = Date.parse( v );
+	return Number.isNaN( t ) ? 0 : t;
+}
+
+export function IllustrationGallery( {
+	items,
+	siteUrl,
+	publishedReviews,
+	showReviewsUnderItems,
+	reviewFallbackIconUrl,
+}: Props ) {
 	const visible = items.filter( ( row ) => row.url.trim() !== '' );
 	if ( visible.length === 0 ) {
 		return null;
@@ -36,6 +55,19 @@ export function IllustrationGallery( { items, siteUrl }: Props ) {
 				{ visible.map( ( row, i ) => {
 					const url = row.url.trim();
 					const showImg = isImageUrl( url );
+					const itemReviews = showReviewsUnderItems
+						? publishedReviews
+								.filter(
+									( r ) =>
+										r.item_type === 'illustration' &&
+										r.item_id === row.item_id
+								)
+								.sort(
+									( a, b ) =>
+										toEpochMs( a.created_at ) - toEpochMs( b.created_at )
+								)
+								.slice( 0, 3 )
+						: [];
 					return (
 						<article
 							key={ `${ url }-${ i }` }
@@ -73,6 +105,10 @@ export function IllustrationGallery( { items, siteUrl }: Props ) {
 										itemId={ row.item_id }
 									/>
 								</div>
+								<ItemReviewsBlock
+									reviews={ itemReviews }
+									fallbackIconUrl={ reviewFallbackIconUrl }
+								/>
 							</div>
 						</article>
 					);
