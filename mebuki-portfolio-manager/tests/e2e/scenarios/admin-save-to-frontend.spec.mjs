@@ -41,14 +41,14 @@ async function saveSettings(page) {
 }
 
 /**
- * 公開側で [mebuki_portfolio] が描画されるURLを決める。
- * - E2E_FRONTEND_PATH があれば最優先（CIや任意スラッグ向け）
- * - 未設定なら REST で slug=portfolio-e2e（setup-wp-e2e.php が作成）を解決
+ * [mebuki_portfolio] 付き公開ページへの候補パス（優先順）。
+ * - E2E_FRONTEND_PATH があればそれのみ
+ * - 未設定時は REST の canonical pathname → ?page_id= → index.php?page_id=（パーマリンク未反映の Docker/CI 向け）
  */
-async function resolvePortfolioPublicPath(request, baseURL) {
+async function collectPortfolioPublicPaths(request, baseURL) {
 	const env = (process.env.E2E_FRONTEND_PATH || '').trim();
 	if (env) {
-		return env.startsWith('/') ? env : `/${env}`;
+		return [env.startsWith('/') ? env : `/${env}`];
 	}
 	const base = String(baseURL ?? '').replace(/\/$/, '');
 	if (!base) {
@@ -63,25 +63,63 @@ async function resolvePortfolioPublicPath(request, baseURL) {
 		);
 	}
 	const pages = await res.json();
-	if (Array.isArray(pages) && pages[0]?.link) {
-		return new URL(pages[0].link).pathname || '/';
+	const row = Array.isArray(pages) && pages[0] ? pages[0] : null;
+	const pageId = row && (row.id ?? row.ID) != null ? Number(row.id ?? row.ID) : NaN;
+	if (!row || !Number.isFinite(pageId) || pageId <= 0) {
+		throw new Error(
+			'slug `portfolio-e2e` の固定ページが見つかりません。scripts/setup-wp-e2e.php を実行するか、E2E_FRONTEND_PATH を設定してください。'
+		);
 	}
-	throw new Error(
-		'slug `portfolio-e2e` の固定ページが見つかりません。scripts/setup-wp-e2e.php を実行するか、E2E_FRONTEND_PATH を設定してください。'
-	);
+	const paths = [];
+	if (row.link) {
+		try {
+			paths.push(new URL(row.link).pathname || '/');
+		} catch {
+			// ignore malformed link
+		}
+	}
+	paths.push(`/?page_id=${pageId}`);
+	paths.push(`/index.php?page_id=${pageId}`);
+	const seen = new Set();
+	const out = [];
+	for (const p of paths) {
+		if (seen.has(p)) continue;
+		seen.add(p);
+		out.push(p);
+	}
+	return out;
 }
 
 /** ショートコード付き公開ページを開き、React マウント先が存在することを確認する */
 async function openPublicPortfolio(page, request, baseURL) {
-	const path = await resolvePortfolioPublicPath(request, baseURL);
-	const response = await page.goto(path);
-	expect(response, `公開ページへ遷移できませんでした: ${path}`).toBeTruthy();
-	if (response.status() >= 400) {
-		throw new Error(
-			`公開ページ ${path} が HTTP ${response.status()} を返しました。固定ページ・パーマリンク・E2E_FRONTEND_PATH を確認してください。`
-		);
+	const paths = await collectPortfolioPublicPaths(request, baseURL);
+	const errors = [];
+	for (const path of paths) {
+		let response = null;
+		try {
+			response = await page.goto(path, { waitUntil: 'domcontentloaded' });
+		} catch (e) {
+			errors.push(`${path}: navigation ${String(e)}`);
+			continue;
+		}
+		if (!response) {
+			errors.push(`${path}: no response`);
+			continue;
+		}
+		if (response.status() >= 400) {
+			errors.push(`${path}: HTTP ${response.status()}`);
+			continue;
+		}
+		try {
+			await page.locator('#mebuki-frontend-root').waitFor({ state: 'attached', timeout: 25_000 });
+			return;
+		} catch (e) {
+			errors.push(`${path}: no #mebuki-frontend-root (${String(e)})`);
+		}
 	}
-	await expect(page.locator('#mebuki-frontend-root')).toBeAttached({ timeout: 25_000 });
+	throw new Error(
+		`公開ポートフォリオページを開けませんでした。${errors.join(' | ')}`
+	);
 }
 
 test.describe('Admin save to frontend smoke', () => {
