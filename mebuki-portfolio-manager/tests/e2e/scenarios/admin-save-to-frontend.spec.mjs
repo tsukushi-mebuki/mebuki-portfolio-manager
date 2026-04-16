@@ -43,7 +43,7 @@ async function saveSettings(page) {
 /**
  * [mebuki_portfolio] 付き公開ページへの候補パス（優先順）。
  * - E2E_FRONTEND_PATH があればそれのみ
- * - 未設定時は REST の canonical pathname → ?page_id= → index.php?page_id=（パーマリンク未反映の Docker/CI 向け）
+ * - 未設定時は ?page_id= を最優先し、続けて index.php・きれいな URL（パーマリンク未反映の Docker/CI 向け）
  */
 async function collectPortfolioPublicPaths(request, baseURL) {
 	const env = (process.env.E2E_FRONTEND_PATH || '').trim();
@@ -71,15 +71,19 @@ async function collectPortfolioPublicPaths(request, baseURL) {
 		);
 	}
 	const paths = [];
+	paths.push(`/?page_id=${pageId}`);
+	paths.push(`/index.php?page_id=${pageId}`);
+	paths.push(`/?p=${pageId}`);
 	if (row.link) {
 		try {
-			paths.push(new URL(row.link).pathname || '/');
+			const p = new URL(row.link).pathname || '/';
+			if (p !== '/') {
+				paths.push(p);
+			}
 		} catch {
 			// ignore malformed link
 		}
 	}
-	paths.push(`/?page_id=${pageId}`);
-	paths.push(`/index.php?page_id=${pageId}`);
 	const seen = new Set();
 	const out = [];
 	for (const p of paths) {
@@ -90,14 +94,18 @@ async function collectPortfolioPublicPaths(request, baseURL) {
 	return out;
 }
 
-/** ショートコード付き公開ページを開き、React マウント先が存在することを確認する */
+/**
+ * ショートコード付き公開ページを開き、フロント React が実際にマウントされるまで待つ。
+ * #mebuki-frontend-root は PHP が空 div を出すだけなので、attached だけでは未マウントでも通ってしまう。
+ */
 async function openPublicPortfolio(page, request, baseURL) {
 	const paths = await collectPortfolioPublicPaths(request, baseURL);
 	const errors = [];
+	const hydrateTimeout = 45_000;
 	for (const path of paths) {
 		let response = null;
 		try {
-			response = await page.goto(path, { waitUntil: 'domcontentloaded' });
+			response = await page.goto(path, { waitUntil: 'load' });
 		} catch (e) {
 			errors.push(`${path}: navigation ${String(e)}`);
 			continue;
@@ -110,11 +118,20 @@ async function openPublicPortfolio(page, request, baseURL) {
 			errors.push(`${path}: HTTP ${response.status()}`);
 			continue;
 		}
+		const root = page.locator('#mebuki-frontend-root');
 		try {
-			await page.locator('#mebuki-frontend-root').waitFor({ state: 'attached', timeout: 25_000 });
-			return;
+			await root.waitFor({ state: 'attached', timeout: 25_000 });
 		} catch (e) {
 			errors.push(`${path}: no #mebuki-frontend-root (${String(e)})`);
+			continue;
+		}
+		try {
+			await expect(root.locator('div[data-theme]').first()).toBeVisible({
+				timeout: hydrateTimeout,
+			});
+			return;
+		} catch (e) {
+			errors.push(`${path}: portfolio UI did not hydrate (no div[data-theme]) (${String(e)})`);
 		}
 	}
 	throw new Error(
