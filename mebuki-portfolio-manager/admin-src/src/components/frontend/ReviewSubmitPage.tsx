@@ -13,6 +13,29 @@ type ReviewTarget = {
 	itemTitle: string;
 };
 
+function normalizeReturnUrl(
+	preferredUrl: string,
+	fallbackUrl: string
+): string {
+	const preferred = preferredUrl.trim();
+	if ( preferred !== '' ) {
+		try {
+			return new URL( preferred ).toString();
+		} catch {
+			/* ignore invalid preferred URL */
+		}
+	}
+	const fallback = fallbackUrl.trim();
+	if ( fallback !== '' ) {
+		try {
+			return new URL( fallback ).toString();
+		} catch {
+			/* ignore invalid fallback URL */
+		}
+	}
+	return '#';
+}
+
 function resolveTarget( vm: FrontendViewModel ): ReviewTarget | null {
 	const params = new URLSearchParams( window.location.search );
 	const rawType = ( params.get( 'mebuki_review_target' ) ?? '' ).trim();
@@ -44,6 +67,10 @@ export function ReviewSubmitPage( { vm, siteUrl }: Props ) {
 	const root = window.mebukiPmSettings?.root;
 	const uid = window.mebukiPmSettings?.portfolioUserId;
 	const target = useMemo( () => resolveTarget( vm ), [ vm ] );
+	const returnUrl = useMemo(
+		() => normalizeReturnUrl( vm.portfolio_site_url, siteUrl ),
+		[ vm.portfolio_site_url, siteUrl ]
+	);
 
 	const [ reviewerName, setReviewerName ] = useState( '' );
 	const [ reviewerThumbUrl, setReviewerThumbUrl ] = useState( '' );
@@ -127,10 +154,10 @@ export function ReviewSubmitPage( { vm, siteUrl }: Props ) {
 							承認後に作品ページと口コミ一覧へ反映されます。
 						</p>
 						<a
-							href={ siteUrl }
+							href={ returnUrl }
 							className="inline-flex items-center justify-center rounded-[var(--mebuki-radius)] bg-[var(--mebuki-accent)] px-4 py-2 text-sm font-semibold text-white"
 						>
-							サイトに戻る
+							ポートフォリオサイトへ
 						</a>
 					</div>
 				) : (
@@ -205,10 +232,10 @@ export function ReviewSubmitPage( { vm, siteUrl }: Props ) {
 								{ submitting ? '送信中…' : '口コミを投稿する' }
 							</button>
 							<a
-								href={ siteUrl }
+								href={ returnUrl }
 								className="text-sm text-[var(--mebuki-accent)] underline"
 							>
-								サイトへ戻る
+								ポートフォリオサイトへ
 							</a>
 						</div>
 					</form>

@@ -78,6 +78,8 @@ export interface MebukiFormState {
 	/** Stripe Webhook 署名検証用（whsec_...） */
 	stripe_webhook_secret: string;
 	admin_email: string;
+	/** 口コミ投稿完了画面の戻り先URL（未設定時はサイトURLにフォールバック） */
+	portfolio_site_url: string;
 	api_key?: string;
 	endpoint?: string;
 }

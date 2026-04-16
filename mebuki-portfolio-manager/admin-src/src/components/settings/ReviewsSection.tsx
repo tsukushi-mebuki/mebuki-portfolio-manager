@@ -4,11 +4,15 @@ import {
 	patchReviewVisibility,
 } from '../../lib/reviewsApi';
 import type { ReviewRow } from '../../types/settings';
+import type { MebukiFormState } from '../../types/settings';
 import type { ToastVariant } from '../Toast';
+import type { Dispatch, SetStateAction } from 'react';
 
 type Props = {
 	root: string;
 	nonce: string;
+	form: MebukiFormState;
+	setForm: Dispatch<SetStateAction<MebukiFormState>>;
 	onNotify: ( message: string, variant: ToastVariant ) => void;
 };
 
@@ -16,7 +20,13 @@ function isPublicStatus( status: string ): boolean {
 	return status === 'published';
 }
 
-export function ReviewsSection( { root, nonce, onNotify }: Props ) {
+export function ReviewsSection( {
+	root,
+	nonce,
+	form,
+	setForm,
+	onNotify,
+}: Props ) {
 	const [ reviews, setReviews ] = useState<ReviewRow[]>( [] );
 	const [ loading, setLoading ] = useState( true );
 	const [ err, setErr ] = useState<string | null>( null );
@@ -98,6 +108,31 @@ export function ReviewsSection( { root, nonce, onNotify }: Props ) {
 
 	return (
 		<div className="space-y-3">
+			<div className="rounded-lg border border-slate-200 bg-white p-4">
+				<label
+					htmlFor="portfolio-site-url"
+					className="mb-1 block text-sm font-medium text-slate-800"
+				>
+					ポートフォリオサイトアドレス
+				</label>
+				<input
+					id="portfolio-site-url"
+					type="url"
+					inputMode="url"
+					placeholder="https://example.com/"
+					value={ form.portfolio_site_url }
+					onChange={ ( e ) =>
+						setForm( ( prev ) => ( {
+							...prev,
+							portfolio_site_url: e.target.value,
+						} ) )
+					}
+					className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+				/>
+				<p className="mt-2 text-xs text-slate-500">
+					口コミ投稿完了後の「ポートフォリオサイトへ」リンク先です。未入力時はサイトURLに戻ります。
+				</p>
+			</div>
 			{ reviews.map( ( row ) => {
 				const pub = isPublicStatus( row.status );
 				const disabled = busyId === row.id;
