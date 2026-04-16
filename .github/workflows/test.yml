@@ -10,6 +10,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   phpunit:
     runs-on: ubuntu-latest
@@ -39,7 +42,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.2"
+          php-version: "8.4"
           tools: composer:v2, phpunit
           coverage: none
 
@@ -130,7 +133,7 @@ jobs:
           E2E_ADMIN_USER: admin
           E2E_ADMIN_PASSWORD: password
         run: |
-          docker compose exec -T wordpress php /var/www/html/wp-content/plugins/mebuki-portfolio-manager/.github/scripts/setup-wp-e2e.php
+          docker compose exec -T wordpress php /var/www/html/wp-content/plugins/mebuki-portfolio-manager/tests/e2e/scripts/setup-wp-e2e.php
 
       - name: Run Playwright smoke
         env:
@@ -151,6 +154,7 @@ jobs:
           path: |
             mebuki-portfolio-manager/tests/e2e/playwright-report
             mebuki-portfolio-manager/tests/e2e/test-results
+          if-no-files-found: ignore
 
       - name: Show container logs on failure
         if: failure()
