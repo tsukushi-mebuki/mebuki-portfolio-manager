@@ -37,7 +37,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -70,12 +70,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: mebuki-portfolio-manager/tests/e2e/package-lock.json
 
@@ -112,7 +112,6 @@ jobs:
           E2E_BASE_URL: http://localhost:8000
           E2E_ADMIN_USER: admin
           E2E_ADMIN_PASSWORD: password
-          E2E_FRONTEND_PATH: /portfolio-e2e/
           E2E_ADMIN_PATH: /wp-admin/admin.php?page=mebuki-pm
         run: |
           cd mebuki-portfolio-manager/tests/e2e
@@ -120,7 +119,7 @@ jobs:
 
       - name: Upload Playwright artifacts
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: playwright-report
           path: |

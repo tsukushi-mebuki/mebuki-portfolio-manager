@@ -1,9 +1,11 @@
 <?php
 /**
  * CI helper: install WordPress (if needed), activate plugin, and prepare E2E page.
+ *
+ * Do not define WP_INSTALLING here: leaving it true after the site is installed
+ * can break rewrites, shortcodes, and other runtime behavior during this script.
  */
 
-define( 'WP_INSTALLING', true );
 require '/var/www/html/wp-load.php';
 require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 require_once ABSPATH . 'wp-admin/includes/plugin.php';
@@ -27,10 +29,15 @@ if ( ! $admin ) {
 if ( $admin instanceof WP_User ) {
 	$admin->set_role( 'administrator' );
 	wp_set_password( $admin_password, $admin->ID );
+	wp_set_current_user( $admin->ID );
 }
 
 if ( ! is_plugin_active( 'mebuki-portfolio-manager/mebuki-portfolio-manager.php' ) ) {
-	activate_plugin( 'mebuki-portfolio-manager/mebuki-portfolio-manager.php' );
+	$result = activate_plugin( 'mebuki-portfolio-manager/mebuki-portfolio-manager.php' );
+	if ( is_wp_error( $result ) ) {
+		fwrite( STDERR, 'Plugin activation failed: ' . $result->get_error_message() . PHP_EOL );
+		exit( 1 );
+	}
 }
 
 global $wp_rewrite;
