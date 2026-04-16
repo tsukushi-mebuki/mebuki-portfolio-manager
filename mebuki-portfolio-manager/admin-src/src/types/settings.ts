@@ -80,6 +80,10 @@ export interface MebukiFormState {
 	admin_email: string;
 	/** 口コミ投稿完了画面の戻り先URL（未設定時はサイトURLにフォールバック） */
 	portfolio_site_url: string;
+	/** 口コミアイコン未設定時のフォールバック画像URL */
+	review_fallback_icon_url: string;
+	/** YouTube/Illustration 作品カード下に口コミを表示するか */
+	show_reviews_under_items: boolean;
 	api_key?: string;
 	endpoint?: string;
 }

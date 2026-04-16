@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { SectionId } from '../types/settings';
+import type { ReviewRow, SectionId } from '../types/settings';
 import type { FrontendViewModel } from './normalizeViewModel';
 import { AboutSection } from '../components/frontend/AboutSection';
 import { YouTubeGallery } from '../components/frontend/YouTubeGallery';
@@ -14,6 +14,7 @@ type Props = {
 	sectionId: SectionId;
 	vm: FrontendViewModel;
 	siteUrl: string;
+	publishedReviews: ReviewRow[] | null;
 };
 
 type SectionRenderContext = {
@@ -30,22 +31,48 @@ const SECTION_REGISTRY: Record<
 > = {
 	about: ( { vm } ) => <AboutSection items={ vm.about.items } />,
 	credo: ( { vm } ) => <CredoSection credo={ vm.credo } />,
-	'youtube_gallery': ( { vm, siteUrl } ) => (
-		<YouTubeGallery items={ vm.youtube_gallery.items } siteUrl={ siteUrl } />
-	),
-	'illustration_gallery': ( { vm, siteUrl } ) => (
-		<IllustrationGallery
-			items={ vm.illustration_gallery.items }
-			siteUrl={ siteUrl }
-		/>
-	),
+	'youtube_gallery': () => null,
+	'illustration_gallery': () => null,
 	'link_cards': ( { vm } ) => <LinkCards items={ vm.link_cards.items } />,
 	pricing: ( { vm } ) => <PricingSection pricing={ vm.pricing } />,
 	faq: ( { vm } ) => <FAQSection items={ vm.faq.items } />,
-	reviews: () => <ReviewSection />,
+	reviews: () => null,
 };
 
-export function SectionRenderer( { sectionId, vm, siteUrl }: Props ) {
+export function SectionRenderer( { sectionId, vm, siteUrl, publishedReviews }: Props ) {
 	const render = SECTION_REGISTRY[ sectionId ];
-	return render ? render( { vm, siteUrl } ) : null;
+	if ( ! render ) {
+		return null;
+	}
+	if ( sectionId === 'youtube_gallery' ) {
+		return (
+			<YouTubeGallery
+				items={ vm.youtube_gallery.items }
+				siteUrl={ siteUrl }
+				publishedReviews={ publishedReviews ?? [] }
+				showReviewsUnderItems={ vm.show_reviews_under_items }
+				reviewFallbackIconUrl={ vm.review_fallback_icon_url }
+			/>
+		);
+	}
+	if ( sectionId === 'illustration_gallery' ) {
+		return (
+			<IllustrationGallery
+				items={ vm.illustration_gallery.items }
+				siteUrl={ siteUrl }
+				publishedReviews={ publishedReviews ?? [] }
+				showReviewsUnderItems={ vm.show_reviews_under_items }
+				reviewFallbackIconUrl={ vm.review_fallback_icon_url }
+			/>
+		);
+	}
+	if ( sectionId === 'reviews' ) {
+		return (
+			<ReviewSection
+				reviews={ publishedReviews }
+				fallbackIconUrl={ vm.review_fallback_icon_url }
+			/>
+		);
+	}
+	return render( { vm, siteUrl } );
 }

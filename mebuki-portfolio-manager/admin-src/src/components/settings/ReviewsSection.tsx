@@ -77,37 +77,8 @@ export function ReviewsSection( {
 		}
 	};
 
-	if ( loading ) {
-		return (
-			<p className="text-sm text-slate-500">口コミを読み込み中…</p>
-		);
-	}
-
-	if ( err ) {
-		return (
-			<div className="space-y-2">
-				<p className="text-sm text-rose-600">{ err }</p>
-				<button
-					type="button"
-					className="text-sm text-sky-700 underline"
-					onClick={ () => void load() }
-				>
-					再読み込み
-				</button>
-			</div>
-		);
-	}
-
-	if ( reviews.length === 0 ) {
-		return (
-			<p className="text-sm text-slate-500">
-				まだ口コミはありません。公開フォームから送信されるとここに表示されます。
-			</p>
-		);
-	}
-
 	return (
-		<div className="space-y-3">
+		<div className="space-y-4">
 			<div className="rounded-lg border border-slate-200 bg-white p-4">
 				<label
 					htmlFor="portfolio-site-url"
@@ -132,8 +103,81 @@ export function ReviewsSection( {
 				<p className="mt-2 text-xs text-slate-500">
 					口コミ投稿完了後の「ポートフォリオサイトへ」リンク先です。未入力時はサイトURLに戻ります。
 				</p>
+				<div className="mt-4">
+					<label
+						htmlFor="review-fallback-icon-url"
+						className="mb-1 block text-sm font-medium text-slate-800"
+					>
+						ダミーアイコンURL
+					</label>
+					<input
+						id="review-fallback-icon-url"
+						type="url"
+						inputMode="url"
+						placeholder="https://example.com/fallback-avatar.png"
+						value={ form.review_fallback_icon_url }
+						onChange={ ( e ) =>
+							setForm( ( prev ) => ( {
+								...prev,
+								review_fallback_icon_url: e.target.value,
+							} ) )
+						}
+						className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+					/>
+					<p className="mt-2 text-xs text-slate-500">
+						口コミ投稿者の画像が未設定のときに表示するフォールバック画像です。
+					</p>
+				</div>
+				<div className="mt-4 flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+					<div>
+						<p className="text-sm font-medium text-slate-800">
+							作品にも口コミを表示する
+						</p>
+						<p className="text-xs text-slate-500">
+							ON のとき YouTube / Illustration の各作品下に口コミを表示します。
+						</p>
+					</div>
+					<button
+						type="button"
+						role="switch"
+						aria-checked={ form.show_reviews_under_items }
+						onClick={ () =>
+							setForm( ( prev ) => ( {
+								...prev,
+								show_reviews_under_items: ! prev.show_reviews_under_items,
+							} ) )
+						}
+						className={ `relative h-8 w-14 shrink-0 rounded-full transition focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 ${
+							form.show_reviews_under_items ? 'bg-emerald-500' : 'bg-slate-300'
+						}` }
+					>
+						<span
+							className={ `absolute top-1 block h-6 w-6 rounded-full bg-white shadow transition ${
+								form.show_reviews_under_items ? 'left-7' : 'left-1'
+							}` }
+						/>
+					</button>
+				</div>
 			</div>
-			{ reviews.map( ( row ) => {
+			{ loading ? (
+				<p className="text-sm text-slate-500">口コミを読み込み中…</p>
+			) : err ? (
+				<div className="space-y-2">
+					<p className="text-sm text-rose-600">{ err }</p>
+					<button
+						type="button"
+						className="text-sm text-sky-700 underline"
+						onClick={ () => void load() }
+					>
+						再読み込み
+					</button>
+				</div>
+			) : reviews.length === 0 ? (
+				<p className="text-sm text-slate-500">
+					まだ口コミはありません。公開フォームから送信されるとここに表示されます。
+				</p>
+			) : (
+				reviews.map( ( row ) => {
 				const pub = isPublicStatus( row.status );
 				const disabled = busyId === row.id;
 				return (
@@ -192,7 +236,8 @@ export function ReviewsSection( {
 						</div>
 					</div>
 				);
-			} ) }
+			} )
+			) }
 		</div>
 	);
 }
