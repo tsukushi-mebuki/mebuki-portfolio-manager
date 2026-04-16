@@ -19,7 +19,7 @@ test.describe('Admin save to frontend smoke', () => {
 		await page.goto('/wp-login.php');
 		await page.locator('#user_login').fill(adminUser);
 		await page.locator('#user_pass').fill(adminPassword);
-		await page.getByRole('button', { name: 'ログイン' }).click();
+		await page.locator('#wp-submit').click();
 		await page.waitForURL(/wp-admin/);
 
 		await page.goto(new URL(adminPath, baseURL).toString());
