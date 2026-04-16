@@ -71,6 +71,8 @@ function renderSectionBody(
 				<ReviewsSection
 					root={ rest.root }
 					nonce={ rest.nonce }
+					form={ form }
+					setForm={ setForm }
 					onNotify={ onNotify }
 				/>
 			);

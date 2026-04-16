@@ -351,6 +351,8 @@ export function toFormState( raw: Record<string, unknown> | undefined ): MebukiF
 				? r.stripe_webhook_secret
 				: '',
 		admin_email: typeof r.admin_email === 'string' ? r.admin_email : '',
+		portfolio_site_url:
+			typeof r.portfolio_site_url === 'string' ? r.portfolio_site_url : '',
 		api_key: typeof r.api_key === 'string' ? r.api_key : undefined,
 		endpoint: typeof r.endpoint === 'string' ? r.endpoint : undefined,
 	};
@@ -403,6 +405,7 @@ export function buildPayloadForApi( form: MebukiFormState ): Record<string, unkn
 		stripe_secret_key: form.stripe_secret_key,
 		stripe_webhook_secret: form.stripe_webhook_secret,
 		admin_email: form.admin_email,
+		portfolio_site_url: form.portfolio_site_url,
 	};
 
 	if ( form.api_key !== undefined ) {

@@ -8,7 +8,14 @@ export function FrontendApp() {
 	const siteName = window.mebukiPmSettings?.siteName ?? '';
 	const siteUrl = window.mebukiPmSettings?.siteUrl ?? '';
 	const pathname = window.location.pathname.toLowerCase();
-	const isReviewPage = pathname.endsWith( '/reviews' ) || pathname.endsWith( '/reviews/' );
+	const qs = new URLSearchParams( window.location.search );
+	const hasReviewQuery =
+		( qs.get( 'mebuki_review_target' ) ?? '' ).trim() !== '' &&
+		( qs.get( 'item_id' ) ?? '' ).trim() !== '';
+	const isReviewPage =
+		pathname.endsWith( '/reviews' ) ||
+		pathname.endsWith( '/reviews/' ) ||
+		hasReviewQuery;
 
 	const vm = useMemo(
 		() => toFrontendViewModel( window.mebukiPmSettings?.settings ),
