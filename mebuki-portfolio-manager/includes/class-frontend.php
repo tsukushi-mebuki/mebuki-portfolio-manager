@@ -13,6 +13,9 @@ class Mebuki_PM_Frontend {
 
 	public const STYLE_HANDLE = 'mebuki-pm-frontend-style';
 
+	/** Option name: valid administrator user ID whose settings power the public portfolio (optional). */
+	private const PORTFOLIO_OWNER_USER_OPTION = 'mebuki_pm_portfolio_owner_user_id';
+
 	/**
 	 * Register hooks.
 	 *
@@ -29,6 +32,14 @@ class Mebuki_PM_Frontend {
 	 * @return int
 	 */
 	private static function get_portfolio_owner_user_id() {
+		$explicit = (int) get_option( self::PORTFOLIO_OWNER_USER_OPTION, 0 );
+		if ( $explicit > 0 ) {
+			$user = get_user_by( 'id', $explicit );
+			if ( $user instanceof WP_User && user_can( $user, 'manage_options' ) ) {
+				return (int) $user->ID;
+			}
+		}
+
 		$admins = get_users(
 			array(
 				'role'   => 'administrator',

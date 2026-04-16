@@ -91,4 +91,19 @@ class Test_Frontend_Settings_Bridge extends WP_UnitTestCase {
 		$this->assertInstanceOf( 'WP_User', $user );
 		$this->assertContains( 'administrator', (array) $user->roles );
 	}
+
+	/**
+	 * Optional site option overrides "first administrator" heuristics (e.g. Docker E2E with multiple admins).
+	 *
+	 * @return void
+	 */
+	public function test_explicit_portfolio_owner_user_id_option_is_respected() {
+		$method = new ReflectionMethod( 'Mebuki_PM_Frontend', 'get_portfolio_owner_user_id' );
+		$method->setAccessible( true );
+
+		update_option( 'mebuki_pm_portfolio_owner_user_id', $this->secondary_admin_id, false );
+		$this->assertSame( $this->secondary_admin_id, (int) $method->invoke( null ) );
+
+		delete_option( 'mebuki_pm_portfolio_owner_user_id' );
+	}
 }

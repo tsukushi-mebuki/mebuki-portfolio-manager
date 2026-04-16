@@ -72,4 +72,9 @@ if ( ! $page ) {
 update_option( 'siteurl', $site_url );
 update_option( 'home', $site_url );
 
+// Align public portfolio owner with the E2E admin login (Docker may already have another administrator as user ID 1).
+if ( $admin instanceof WP_User ) {
+	update_option( 'mebuki_pm_portfolio_owner_user_id', (int) $admin->ID, false );
+}
+
 echo "E2E WordPress setup complete.\n";
