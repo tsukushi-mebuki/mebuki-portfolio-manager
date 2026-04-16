@@ -6,7 +6,9 @@ on:
       - main
       - develop
       - "feature/**"
+      - "chore/**"
   pull_request:
+  workflow_dispatch:
 
 jobs:
   phpunit:
