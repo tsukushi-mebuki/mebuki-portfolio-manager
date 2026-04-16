@@ -10,8 +10,10 @@ export function buildReviewCollectionUrl(
 	if ( trimmed === '' ) {
 		return '';
 	}
-	const withSlash = trimmed.endsWith( '/' ) ? trimmed : `${ trimmed }/`;
-	const url = new URL( withSlash );
+	const url = new URL(
+		'reviews/',
+		trimmed.endsWith( '/' ) ? trimmed : `${ trimmed }/`
+	);
 	url.searchParams.set( 'mebuki_review_target', itemType );
 	url.searchParams.set( 'item_id', itemId );
 	return url.toString();
