@@ -11,12 +11,19 @@ services:
     volumes:
       - db_data:/var/lib/mysql
       - ./docker/mysql/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot_password"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
 
   wordpress:
     image: wordpress:latest
     container_name: mebuki-wordpress
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     restart: unless-stopped
     ports:
       - "8000:80"

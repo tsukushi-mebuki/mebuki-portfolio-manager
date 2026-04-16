@@ -21,6 +21,11 @@ if ( ! is_blog_installed() ) {
 	wp_install( $site_title, $admin_user, $admin_email, true, '', $admin_password );
 }
 
+if ( ! is_blog_installed() ) {
+	fwrite( STDERR, "wp_install did not complete: is_blog_installed() is still false.\n" );
+	exit( 1 );
+}
+
 $admin = get_user_by( 'login', $admin_user );
 if ( ! $admin ) {
 	$admin_id = wp_create_user( $admin_user, $admin_password, $admin_email );
@@ -75,6 +80,25 @@ update_option( 'home', $site_url );
 // Align public portfolio owner with the E2E admin login (Docker may already have another administrator as user ID 1).
 if ( $admin instanceof WP_User ) {
 	update_option( 'mebuki_pm_portfolio_owner_user_id', (int) $admin->ID, false );
+}
+
+if ( function_exists( 'wp_cache_flush' ) ) {
+	wp_cache_flush();
+}
+
+$page_verify = get_page_by_path( $slug, OBJECT, 'page' );
+if ( ! $page_verify instanceof WP_Post || 'publish' !== $page_verify->post_status ) {
+	fwrite( STDERR, "E2E portfolio page is missing or not published (slug: {$slug}).\n" );
+	exit( 1 );
+}
+if ( false === strpos( (string) $page_verify->post_content, 'mebuki_portfolio' ) ) {
+	fwrite( STDERR, "E2E portfolio page must contain the [mebuki_portfolio] shortcode.\n" );
+	exit( 1 );
+}
+
+if ( ! is_plugin_active( 'mebuki-portfolio-manager/mebuki-portfolio-manager.php' ) ) {
+	fwrite( STDERR, "Plugin mebuki-portfolio-manager is not active after setup.\n" );
+	exit( 1 );
 }
 
 echo "E2E WordPress setup complete.\n";

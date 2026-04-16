@@ -85,46 +85,15 @@ jobs:
           npm install
           npx playwright install --with-deps chromium
 
-      - name: Start Docker stack
+      - name: Start Docker stack (db must be healthy before wordpress)
         run: docker compose up -d db wordpress
 
-      # DB が受け付けるまで待つ（WordPress の wp_install が失敗しやすい競合を減らす）
-      - name: Wait for MySQL
-        run: |
-          for i in {1..60}; do
-            if docker compose exec -T db mysqladmin ping -h localhost -uroot -proot_password --silent 2>/dev/null; then
-              echo "MySQL is ready"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "MySQL did not become ready in time" >&2
-          exit 1
-
-      # 未インストール時も Apache は 200 を返す（言語選択画面など）。HTTP だけでは「インストール済み」とは言えない。
-      - name: Wait for WordPress HTTP
-        run: |
-          for i in {1..60}; do
-            if curl -sSf http://localhost:8000 > /dev/null; then
-              echo "WordPress HTTP is up"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "WordPress HTTP did not become ready in time" >&2
-          exit 1
-
-      - name: Prepare WordPress data for E2E
+      - name: Bootstrap WordPress for E2E
         env:
           E2E_ADMIN_USER: admin
           E2E_ADMIN_PASSWORD: password
-        run: |
-          docker compose exec -T wordpress php /var/www/html/wp-content/plugins/mebuki-portfolio-manager/scripts/setup-wp-e2e.php
-
-      # setup 失敗時はここで落ちる。未インストールのままだとブラウザは install.php の言語選択へ飛ぶ。
-      - name: Verify WordPress is installed
-        run: |
-          docker compose exec -T wordpress php -r "require '/var/www/html/wp-load.php'; exit(is_blog_installed() ? 0 : 1);"
+          E2E_BASE_URL: http://localhost:8000
+        run: bash scripts/e2e-bootstrap-wordpress.sh
 
       - name: Run Playwright smoke
         env:
