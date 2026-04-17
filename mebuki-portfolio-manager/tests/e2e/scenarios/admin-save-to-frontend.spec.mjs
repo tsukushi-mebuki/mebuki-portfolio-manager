@@ -225,8 +225,9 @@ async function openReviewFormFromPortfolio(page, request, baseURL) {
 		await expect(heading).toBeVisible({ timeout: 20_000 });
 		const canSubmitOnThisPage = await page.evaluate(() => {
 			const root = window.mebukiPmSettings?.root;
-			const uid = window.mebukiPmSettings?.portfolioUserId;
-			return Boolean(root && typeof uid === 'number' && uid > 0);
+			const uidRaw = window.mebukiPmSettings?.portfolioUserId;
+			const uid = Number(uidRaw);
+			return Boolean(root && Number.isFinite(uid) && uid > 0);
 		});
 		if (canSubmitOnThisPage) {
 			return;
@@ -247,8 +248,9 @@ async function openReviewFormFromPortfolio(page, request, baseURL) {
 		await expect(heading).toBeVisible({ timeout: 20_000 });
 		const canSubmitOnThisPage = await page.evaluate(() => {
 			const root = window.mebukiPmSettings?.root;
-			const uid = window.mebukiPmSettings?.portfolioUserId;
-			return Boolean(root && typeof uid === 'number' && uid > 0);
+			const uidRaw = window.mebukiPmSettings?.portfolioUserId;
+			const uid = Number(uidRaw);
+			return Boolean(root && Number.isFinite(uid) && uid > 0);
 		});
 		if (canSubmitOnThisPage) {
 			return;
