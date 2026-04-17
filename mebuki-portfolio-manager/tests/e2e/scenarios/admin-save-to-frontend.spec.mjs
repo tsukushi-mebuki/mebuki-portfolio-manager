@@ -330,8 +330,9 @@ async function fillReviewFormAndSubmit(page, reviewName, reviewText) {
 }
 
 async function waitForReviewSwitchInAdmin(page, reviewName, baseURL) {
-	for (let attempt = 1; attempt <= 4; attempt += 1) {
-		const reviewRow = sectionCard(page, 'reviews').locator('div').filter({
+	const reviewsCard = sectionCard(page, 'reviews');
+	for (let attempt = 1; attempt <= 6; attempt += 1) {
+		const reviewRow = reviewsCard.locator('div').filter({
 			hasText: reviewName,
 		}).first();
 		const reviewSwitch = reviewRow.locator('button[role="switch"]');
@@ -339,12 +340,21 @@ async function waitForReviewSwitchInAdmin(page, reviewName, baseURL) {
 			await expect(reviewSwitch).toBeVisible({ timeout: 10_000 });
 			return reviewSwitch;
 		}
-		if (attempt < 4) {
+		const reloadButton = reviewsCard.getByRole('button', { name: '再読み込み' });
+		if ((await reloadButton.count()) > 0 && (await reloadButton.isVisible())) {
+			await reloadButton.click();
+			await page.waitForTimeout(600);
+			continue;
+		}
+		if (attempt < 6) {
 			await waitForAdminReady(page, baseURL);
 			await page.waitForTimeout(800);
 		}
 	}
-	throw new Error(`管理画面の口コミ一覧に投稿レビューが見つかりませんでした: ${reviewName}`);
+	const diagnostics = await reviewsCard.innerText().catch(() => '(reviews card text unavailable)');
+	throw new Error(
+		`管理画面の口コミ一覧に投稿レビューが見つかりませんでした: ${reviewName} | card=${diagnostics.slice(0, 400)}`
+	);
 }
 
 test.describe('Admin save to frontend smoke', () => {
