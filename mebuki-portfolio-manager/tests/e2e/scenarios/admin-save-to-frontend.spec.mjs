@@ -141,6 +141,9 @@ async function collectPortfolioPublicPaths(request, baseURL) {
 	paths.push(`/?page_id=${pageId}`);
 	paths.push(`/index.php?page_id=${pageId}`);
 	paths.push(`/?p=${pageId}`);
+	// setup-wp-e2e.php で page_on_front をこの固定ページにしているため、
+	// rewrite 不安定時の最終フォールバックとしてルートも候補に入れる。
+	paths.push('/');
 	if (row.link) {
 		try {
 			const p = new URL(row.link).pathname || '/';

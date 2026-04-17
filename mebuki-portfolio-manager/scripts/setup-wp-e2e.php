@@ -137,6 +137,10 @@ if ( false === strpos( (string) $page_verify->post_content, 'mebuki_portfolio' )
 	exit( 1 );
 }
 
+// CI の rewrite 収束待ちに左右されないよう、E2E 用ページをフロントページとして固定する。
+update_option( 'show_on_front', 'page' );
+update_option( 'page_on_front', (int) $page_verify->ID );
+
 if ( ! is_plugin_active( 'mebuki-portfolio-manager/mebuki-portfolio-manager.php' ) ) {
 	fwrite( STDERR, "Plugin mebuki-portfolio-manager is not active after setup.\n" );
 	exit( 1 );
