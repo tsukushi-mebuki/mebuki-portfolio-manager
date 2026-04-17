@@ -169,6 +169,7 @@ EOPHP
 }
 
 echo "==> Running setup-wp-e2e.php (with retries for CI DB / entrypoint races)..."
+verified_http=0
 for attempt in $(seq 1 12); do
 	setup_rc=0
 	docker compose exec -T \
@@ -182,6 +183,7 @@ for attempt in $(seq 1 12); do
 	elif verify_wp_cli_installed; then
 		if verify_wp_http_installed; then
 			echo "WordPress install verified (CLI + HTTP, attempt ${attempt})."
+			verified_http=1
 			break
 		fi
 		echo "WARN: is_blog_installed is true but HTTP still looks like the installer; retrying..." >&2
@@ -196,5 +198,9 @@ for attempt in $(seq 1 12); do
 	fi
 	sleep 5
 done
+
+if [ "$verified_http" -ne 1 ] && verify_wp_cli_installed; then
+	echo "WARN: HTTP installer redirects persisted, but CLI confirms WordPress is installed. Continuing so Playwright can perform the final end-to-end check." >&2
+fi
 
 echo "==> E2E WordPress bootstrap complete (page + shortcode checks are in setup-wp-e2e.php)."
