@@ -260,6 +260,45 @@ async function openReviewFormFromPortfolio(page, request, baseURL) {
 	throw new Error(`口コミフォームを投稿可能状態で開けませんでした。${fallbackErrors.join(' | ')}`);
 }
 
+async function fillReviewFormAndSubmit(page, reviewName, reviewText) {
+	const nameInput = page.getByLabel('お名前');
+	const textArea = page.getByLabel('口コミ内容');
+	const submitButton = page.getByRole('button', { name: '口コミを投稿する' });
+	for (let attempt = 1; attempt <= 3; attempt += 1) {
+		await expect(nameInput).toBeVisible({ timeout: 10_000 });
+		await expect(textArea).toBeVisible({ timeout: 10_000 });
+		await nameInput.fill(reviewName);
+		await textArea.fill(reviewText);
+		await expect(nameInput).toHaveValue(reviewName);
+		await expect(textArea).toHaveValue(reviewText);
+		try {
+			await expect(submitButton).toBeEnabled({ timeout: 4_000 });
+			await submitButton.click();
+			return;
+		} catch {
+			if (attempt === 3) {
+				const diag = await page.evaluate(() => {
+					const settings = window.mebukiPmSettings || {};
+					const btn = Array.from(document.querySelectorAll('button')).find(
+						(b) => (b.textContent || '').includes('口コミを投稿する')
+					);
+					return {
+						root: settings.root || null,
+						portfolioUserId: settings.portfolioUserId ?? null,
+						reviewTarget: new URLSearchParams(window.location.search).get(
+							'mebuki_review_target'
+						),
+						itemId: new URLSearchParams(window.location.search).get('item_id'),
+						buttonDisabled: btn ? btn.hasAttribute('disabled') : null,
+					};
+				});
+				throw new Error(`口コミ投稿ボタンが有効化されませんでした: ${JSON.stringify(diag)}`);
+			}
+			await page.waitForTimeout(700);
+		}
+	}
+}
+
 test.describe('Admin save to frontend smoke', () => {
 	test.skip(
 		!adminUser || !adminPassword,
@@ -466,12 +505,7 @@ test.describe('Admin save to frontend smoke', () => {
 		await openPublicPortfolio(page, request, baseURL);
 		await openReviewFormFromPortfolio(page, request, baseURL);
 
-		const form = page.locator('form');
-		await form.locator('input[type="text"]').first().fill(reviewName);
-		await form.locator('textarea').first().fill(reviewText);
-		const submitButton = page.getByRole('button', { name: '口コミを投稿する' });
-		await expect(submitButton).toBeEnabled({ timeout: 20_000 });
-		await submitButton.click();
+		await fillReviewFormAndSubmit(page, reviewName, reviewText);
 		await expect(page.getByText('口コミを送信しました。')).toBeVisible({ timeout: 15_000 });
 
 		await waitForAdminReady(page, baseURL);
