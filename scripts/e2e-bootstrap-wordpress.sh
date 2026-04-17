@@ -63,25 +63,54 @@ done
 
 verify_wp_http_installed() {
 	local final
-	# 未インストール時は wp-login が install.php（言語選択）へ飛ぶため、ここで検知する
+	# 未インストール時は wp-login が install.php へ飛ぶ。 *install.php* だと plugin-install.php に誤マッチするためパスで限定する
 	final="$(curl -fsSL -o /dev/null -w '%{url_effective}' "${E2E_BASE_URL}/wp-login.php")" || return 1
-	case "$final" in
-		*install.php*|*setup-config.php*) return 1 ;;
-		*) return 0 ;;
-	esac
+	if echo "$final" | grep -qE '/wp-admin/(install|setup-config)\.php(\?|$|#)'; then
+		return 1
+	fi
+	return 0
+}
+
+# wp-load 時に HTTP_HOST が無いと警告・挙動がずれるため、setup-wp-e2e.php と同様に CLI 用 $_SERVER を付与する
+verify_wp_cli_installed() {
+	docker compose exec -T \
+		-e E2E_BASE_URL="${E2E_BASE_URL:-http://localhost:8000}" \
+		wordpress php <<'EOPHP'
+<?php
+$site_url = getenv( 'E2E_BASE_URL' ) ?: 'http://localhost:8000';
+$parsed   = parse_url( $site_url );
+if ( is_array( $parsed ) && ! empty( $parsed['host'] ) ) {
+	$host = $parsed['host'];
+	if ( ! empty( $parsed['port'] ) ) {
+		$host .= ':' . $parsed['port'];
+	}
+	$_SERVER['HTTP_HOST']   = $host;
+	$_SERVER['HTTPS']       = ( isset( $parsed['scheme'] ) && 'https' === $parsed['scheme'] ) ? 'on' : 'off';
+	$_SERVER['SERVER_NAME'] = $parsed['host'];
+	$_SERVER['REQUEST_URI'] = '/';
+	if ( ! empty( $parsed['port'] ) ) {
+		$_SERVER['SERVER_PORT'] = (string) (int) $parsed['port'];
+	} else {
+		$_SERVER['SERVER_PORT'] = ( isset( $parsed['scheme'] ) && 'https' === $parsed['scheme'] ) ? '443' : '80';
+	}
+}
+require '/var/www/html/wp-load.php';
+exit( is_blog_installed() ? 0 : 1 );
+EOPHP
 }
 
 echo "==> Running setup-wp-e2e.php (with retries for CI DB / entrypoint races)..."
 for attempt in $(seq 1 5); do
 	setup_rc=0
 	docker compose exec -T \
+		-e E2E_BASE_URL="${E2E_BASE_URL:-http://localhost:8000}" \
 		-e E2E_ADMIN_USER="${E2E_ADMIN_USER:-admin}" \
 		-e E2E_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-password}" \
 		wordpress php "$SETUP_IN_CONTAINER" || setup_rc=$?
 
 	if [ "$setup_rc" -ne 0 ]; then
 		echo "WARN: setup-wp-e2e.php exited with ${setup_rc} (attempt ${attempt})." >&2
-	elif docker compose exec -T wordpress php -r "require '/var/www/html/wp-load.php'; exit(is_blog_installed() ? 0 : 1);"; then
+	elif verify_wp_cli_installed; then
 		if verify_wp_http_installed; then
 			echo "WordPress install verified (CLI + HTTP, attempt ${attempt})."
 			break

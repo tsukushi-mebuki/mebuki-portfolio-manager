@@ -6,12 +6,33 @@
  * can break rewrites, shortcodes, and other runtime behavior during this script.
  */
 
+$site_url = getenv( 'E2E_BASE_URL' ) ?: 'http://localhost:8000';
+
+// CLI で wp-load する前に必須。未定義だと wp-includes 内で HTTP_HOST 警告・URL 推測が壊れる。
+if ( 'cli' === PHP_SAPI ) {
+	$parsed = parse_url( $site_url );
+	if ( is_array( $parsed ) && ! empty( $parsed['host'] ) ) {
+		$host = $parsed['host'];
+		if ( ! empty( $parsed['port'] ) ) {
+			$host .= ':' . $parsed['port'];
+		}
+		$_SERVER['HTTP_HOST']   = $host;
+		$_SERVER['HTTPS']       = ( isset( $parsed['scheme'] ) && 'https' === $parsed['scheme'] ) ? 'on' : 'off';
+		$_SERVER['SERVER_NAME'] = $parsed['host'];
+		$_SERVER['REQUEST_URI'] = '/';
+		if ( ! empty( $parsed['port'] ) ) {
+			$_SERVER['SERVER_PORT'] = (string) (int) $parsed['port'];
+		} else {
+			$_SERVER['SERVER_PORT'] = ( isset( $parsed['scheme'] ) && 'https' === $parsed['scheme'] ) ? '443' : '80';
+		}
+	}
+}
+
 require '/var/www/html/wp-load.php';
 require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 require_once ABSPATH . 'wp-admin/includes/plugin.php';
 require_once ABSPATH . 'wp-admin/includes/user.php';
 
-$site_url       = 'http://localhost:8000';
 $site_title     = 'Mebuki E2E Site';
 $admin_user     = getenv( 'E2E_ADMIN_USER' ) ?: 'admin';
 $admin_password = getenv( 'E2E_ADMIN_PASSWORD' ) ?: 'password';
