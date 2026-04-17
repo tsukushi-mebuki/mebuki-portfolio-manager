@@ -62,13 +62,26 @@ for i in $(seq 1 60); do
 done
 
 verify_wp_http_installed() {
-	local final
-	# 未インストール時は wp-login が install.php へ飛ぶ。 *install.php* だと plugin-install.php に誤マッチするためパスで限定する
+	local final path
+	# 未インストール時は wp-login が install.php へ飛ぶ。
+	# 全文 grep だと ?redirect_to=...%2Fwp-admin%2Finstall.php ... のクエリに誤マッチするため、パスのみ見る。
 	final="$(curl -fsSL -o /dev/null -w '%{url_effective}' "${E2E_BASE_URL}/wp-login.php")" || return 1
-	if echo "$final" | grep -qE '/wp-admin/(install|setup-config)\.php(\?|$|#)'; then
-		return 1
+	if [[ "$final" =~ ^https?://[^/]+(/[^?#]*) ]]; then
+		path="${BASH_REMATCH[1]}"
+	else
+		path=""
 	fi
-	return 0
+	case "$path" in
+		/wp-admin/install.php|*/wp-admin/install.php)
+			echo "verify_wp_http_installed: on installer path path=${path} url=${final}" >&2
+			return 1
+			;;
+		/wp-admin/setup-config.php|*/wp-admin/setup-config.php)
+			echo "verify_wp_http_installed: on setup-config path=${path} url=${final}" >&2
+			return 1
+			;;
+		*) return 0 ;;
+	esac
 }
 
 # wp-load 時に HTTP_HOST が無いと警告・挙動がずれるため、setup-wp-e2e.php と同様に CLI 用 $_SERVER を付与する
