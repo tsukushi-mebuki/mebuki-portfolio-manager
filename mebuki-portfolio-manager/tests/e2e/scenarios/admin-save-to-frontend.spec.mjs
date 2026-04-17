@@ -329,6 +329,24 @@ async function fillReviewFormAndSubmit(page, reviewName, reviewText) {
 	}
 }
 
+async function waitForReviewSwitchInAdmin(page, reviewName, baseURL) {
+	for (let attempt = 1; attempt <= 4; attempt += 1) {
+		const reviewRow = sectionCard(page, 'reviews').locator('div').filter({
+			hasText: reviewName,
+		}).first();
+		const reviewSwitch = reviewRow.locator('button[role="switch"]');
+		if ((await reviewSwitch.count()) > 0) {
+			await expect(reviewSwitch).toBeVisible({ timeout: 10_000 });
+			return reviewSwitch;
+		}
+		if (attempt < 4) {
+			await waitForAdminReady(page, baseURL);
+			await page.waitForTimeout(800);
+		}
+	}
+	throw new Error(`管理画面の口コミ一覧に投稿レビューが見つかりませんでした: ${reviewName}`);
+}
+
 test.describe('Admin save to frontend smoke', () => {
 	test.skip(
 		!adminUser || !adminPassword,
@@ -539,11 +557,7 @@ test.describe('Admin save to frontend smoke', () => {
 
 		await waitForAdminReady(page, baseURL);
 
-		const reviewRow = sectionCard(page, 'reviews').locator('div').filter({
-			hasText: reviewName,
-		}).first();
-		const reviewSwitch = reviewRow.locator('button[role="switch"]');
-		await expect(reviewSwitch).toBeVisible({ timeout: 15_000 });
+		const reviewSwitch = await waitForReviewSwitchInAdmin(page, reviewName, baseURL);
 		if ((await reviewSwitch.getAttribute('aria-checked')) !== 'true') {
 			await reviewSwitch.click();
 		}
