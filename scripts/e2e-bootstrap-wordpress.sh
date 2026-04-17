@@ -168,6 +168,31 @@ EOPHP
 	docker compose exec -T wordpress apache2ctl -k graceful >/dev/null 2>&1 || true
 }
 
+force_wp_http_install_if_needed() {
+	local install_url admin_user admin_password admin_email
+	local final_login
+
+	final_login="$(curl -fsSL -o /dev/null -w '%{url_effective}' "${E2E_BASE_URL}/wp-login.php")" || return 0
+	if ! is_installer_path "$final_login"; then
+		return 0
+	fi
+
+	install_url="${E2E_BASE_URL}/wp-admin/install.php?step=2"
+	admin_user="${E2E_ADMIN_USER:-admin}"
+	admin_password="${E2E_ADMIN_PASSWORD:-password}"
+	admin_email="${E2E_ADMIN_EMAIL:-admin@example.com}"
+
+	echo "WARN: HTTP still points to installer; attempting HTTP install bootstrap." >&2
+	curl -fsSL -X POST "${install_url}" \
+		--data-urlencode "weblog_title=Mebuki E2E Site" \
+		--data-urlencode "user_name=${admin_user}" \
+		--data-urlencode "admin_password=${admin_password}" \
+		--data-urlencode "admin_password2=${admin_password}" \
+		--data-urlencode "admin_email=${admin_email}" \
+		--data-urlencode "blog_public=1" \
+		--data-urlencode "Submit=Install WordPress" >/dev/null || true
+}
+
 echo "==> Running setup-wp-e2e.php (with retries for CI DB / entrypoint races)..."
 verified_http=0
 for attempt in $(seq 1 12); do
@@ -188,8 +213,10 @@ for attempt in $(seq 1 12); do
 		fi
 		echo "WARN: is_blog_installed is true but HTTP still looks like the installer; retrying..." >&2
 		reconcile_wp_http_state
+		force_wp_http_install_if_needed
 	else
 		echo "WARN: is_blog_installed check failed after setup (attempt ${attempt})." >&2
+		force_wp_http_install_if_needed
 	fi
 
 	if [ "$attempt" -eq 12 ]; then
