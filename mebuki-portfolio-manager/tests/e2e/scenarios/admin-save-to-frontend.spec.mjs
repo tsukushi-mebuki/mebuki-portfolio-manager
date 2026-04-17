@@ -265,6 +265,8 @@ async function fillReviewFormAndSubmit(page, reviewName, reviewText) {
 	const nameInput = form.locator('input[type="text"]').first();
 	const textArea = form.locator('textarea').first();
 	const submitButton = page.getByRole('button', { name: '口コミを投稿する' });
+	const successMessage = page.getByText('口コミを送信しました。');
+	const submitErrorMessage = page.locator('p.rounded-md.bg-rose-50').first();
 	for (let attempt = 1; attempt <= 3; attempt += 1) {
 		if ((await form.count()) === 0) {
 			const diag = await page.evaluate(() => ({
@@ -287,6 +289,19 @@ async function fillReviewFormAndSubmit(page, reviewName, reviewText) {
 		try {
 			await expect(submitButton).toBeEnabled({ timeout: 4_000 });
 			await submitButton.click();
+			await page.waitForFunction(() => {
+				const text = document.body?.innerText || '';
+				return (
+					text.includes('口コミを送信しました。') ||
+					text.includes('投稿設定を読み込めませんでした。') ||
+					text.includes('対象作品を特定できませんでした。') ||
+					text.includes('HTTP ')
+				);
+			}, { timeout: 15_000 });
+			if ((await submitErrorMessage.count()) > 0 && (await submitErrorMessage.isVisible())) {
+				throw new Error(`口コミ投稿APIがエラーを返しました: ${await submitErrorMessage.innerText()}`);
+			}
+			await expect(successMessage).toBeVisible({ timeout: 5_000 });
 			return;
 		} catch {
 			if (attempt === 3) {
@@ -303,6 +318,8 @@ async function fillReviewFormAndSubmit(page, reviewName, reviewText) {
 						),
 						itemId: new URLSearchParams(window.location.search).get('item_id'),
 						buttonDisabled: btn ? btn.hasAttribute('disabled') : null,
+						errorText:
+							document.querySelector('p.rounded-md.bg-rose-50')?.textContent || null,
 					};
 				});
 				throw new Error(`口コミ投稿ボタンが有効化されませんでした: ${JSON.stringify(diag)}`);
@@ -519,7 +536,6 @@ test.describe('Admin save to frontend smoke', () => {
 		await openReviewFormFromPortfolio(page, request, baseURL);
 
 		await fillReviewFormAndSubmit(page, reviewName, reviewText);
-		await expect(page.getByText('口コミを送信しました。')).toBeVisible({ timeout: 15_000 });
 
 		await waitForAdminReady(page, baseURL);
 
