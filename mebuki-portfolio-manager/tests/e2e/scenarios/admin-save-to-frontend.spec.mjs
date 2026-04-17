@@ -43,16 +43,16 @@ function isSettingsMeGetResponse(resp) {
 
 async function waitForAdminReady(page, baseURL) {
 	const adminUrl = new URL(adminPath, baseURL).toString();
-	// SettingsEditor は設定 GET 完了まで「保存」もセクションも出さない（読み込み中のみ）
-	const settingsLoaded = page.waitForResponse(isSettingsMeGetResponse, { timeout: ADMIN_READY_MS });
+	// SettingsEditor は設定 GET 完了まで「保存」もセクションも出さない（読み込み中のみ）。
+	// CI では /wp-json 側が 404 の後に ?rest_route 側で成功することがあるため、
+	// 最初のレスポンスではなく「成功レスポンス」を待つ。
+	const settingsLoaded = page.waitForResponse(
+		(resp) => isSettingsMeGetResponse(resp) && resp.ok(),
+		{ timeout: ADMIN_READY_MS }
+	);
 	await page.goto(adminUrl, { waitUntil: 'load' });
 	await page.waitForURL(isMebukiPmScreen, { timeout: ADMIN_READY_MS });
-	const settingsRes = await settingsLoaded;
-	if (!settingsRes.ok()) {
-		throw new Error(
-			`settings/me GET failed: ${settingsRes.status()} ${settingsRes.url()}`
-		);
-	}
+	await settingsLoaded;
 	await expect(page.getByRole('heading', { name: 'サイト表示マスター' })).toBeVisible({
 		timeout: ADMIN_READY_MS,
 	});
