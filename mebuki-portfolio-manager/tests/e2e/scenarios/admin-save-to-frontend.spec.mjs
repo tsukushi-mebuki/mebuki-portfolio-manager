@@ -16,7 +16,7 @@ const ADMIN_READY_MS = 120_000;
 
 /** プラグイン設定画面（admin.php?page=mebuki-pm） */
 function isMebukiPmScreen(url) {
-	return url.pathname.endsWith('admin.php') && url.searchParams.get('page') === 'mebuki-pm';
+	return url.pathname.includes('/wp-admin/admin.php') && url.searchParams.get('page') === 'mebuki-pm';
 }
 
 /**
@@ -43,16 +43,11 @@ function isSettingsMeGetResponse(resp) {
 
 async function waitForAdminReady(page, baseURL) {
 	const adminUrl = new URL(adminPath, baseURL).toString();
-	// SettingsEditor は設定 GET 完了まで「保存」もセクションも出さない（読み込み中のみ）。
-	// CI では /wp-json 側が 404 の後に ?rest_route 側で成功することがあるため、
-	// 最初のレスポンスではなく「成功レスポンス」を待つ。
-	const settingsLoaded = page.waitForResponse(
-		(resp) => isSettingsMeGetResponse(resp) && resp.ok(),
-		{ timeout: ADMIN_READY_MS }
-	);
-	await page.goto(adminUrl, { waitUntil: 'load' });
-	await page.waitForURL(isMebukiPmScreen, { timeout: ADMIN_READY_MS });
-	await settingsLoaded;
+	await page.goto(adminUrl, { waitUntil: 'domcontentloaded' });
+	// CI では admin.php 遷移と設定 GET の順序が不安定なため、URL と見出しの双方で到達判定する。
+	if (!isMebukiPmScreen(new URL(page.url()))) {
+		await page.goto(adminUrl, { waitUntil: 'load' });
+	}
 	await expect(page.getByRole('heading', { name: 'サイト表示マスター' })).toBeVisible({
 		timeout: ADMIN_READY_MS,
 	});
@@ -237,13 +232,30 @@ async function openReviewFormFromPortfolio(page, request, baseURL) {
 			return;
 		}
 	}
-	// /reviews/ が環境依存で解決できないケースでは、公開ページにクエリを付けて直接フォーム表示へフォールバックする。
+	// /reviews/ が環境依存で解決できないケースでは、公開ページ候補にクエリを付与して投稿可能状態までフォールバックする。
 	const publicPaths = await collectPortfolioPublicPaths(request, baseURL);
-	const fallback = new URL(publicPaths[0], baseURL);
-	fallback.searchParams.set('mebuki_review_target', target);
-	fallback.searchParams.set('item_id', itemId);
-	await page.goto(fallback.toString(), { waitUntil: 'load' });
-	await expect(heading).toBeVisible({ timeout: 20_000 });
+	const fallbackErrors = [];
+	for (const p of publicPaths) {
+		const fallback = new URL(p, baseURL);
+		fallback.searchParams.set('mebuki_review_target', target);
+		fallback.searchParams.set('item_id', itemId);
+		await page.goto(fallback.toString(), { waitUntil: 'load' });
+		if ((await heading.count()) === 0) {
+			fallbackErrors.push(`${fallback.toString()}: heading missing`);
+			continue;
+		}
+		await expect(heading).toBeVisible({ timeout: 20_000 });
+		const canSubmitOnThisPage = await page.evaluate(() => {
+			const root = window.mebukiPmSettings?.root;
+			const uid = window.mebukiPmSettings?.portfolioUserId;
+			return Boolean(root && typeof uid === 'number' && uid > 0);
+		});
+		if (canSubmitOnThisPage) {
+			return;
+		}
+		fallbackErrors.push(`${fallback.toString()}: runtime not ready`);
+	}
+	throw new Error(`口コミフォームを投稿可能状態で開けませんでした。${fallbackErrors.join(' | ')}`);
 }
 
 test.describe('Admin save to frontend smoke', () => {
