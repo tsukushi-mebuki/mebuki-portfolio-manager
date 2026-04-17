@@ -261,10 +261,23 @@ async function openReviewFormFromPortfolio(page, request, baseURL) {
 }
 
 async function fillReviewFormAndSubmit(page, reviewName, reviewText) {
-	const nameInput = page.getByLabel('お名前');
-	const textArea = page.getByLabel('口コミ内容');
+	const form = page.locator('form');
+	const nameInput = form.locator('input[type="text"]').first();
+	const textArea = form.locator('textarea').first();
 	const submitButton = page.getByRole('button', { name: '口コミを投稿する' });
 	for (let attempt = 1; attempt <= 3; attempt += 1) {
+		if ((await form.count()) === 0) {
+			const diag = await page.evaluate(() => ({
+				url: window.location.href,
+				title: document.title,
+				hasHeading: !!Array.from(document.querySelectorAll('h1, h2, h3')).find((el) =>
+					(el.textContent || '').includes('口コミ投稿フォーム')
+				),
+				bodyPreview: (document.body?.innerText || '').slice(0, 240),
+			}));
+			throw new Error(`口コミ投稿フォームが見つかりません: ${JSON.stringify(diag)}`);
+		}
+		await expect(form).toBeVisible({ timeout: 10_000 });
 		await expect(nameInput).toBeVisible({ timeout: 10_000 });
 		await expect(textArea).toBeVisible({ timeout: 10_000 });
 		await nameInput.fill(reviewName);
