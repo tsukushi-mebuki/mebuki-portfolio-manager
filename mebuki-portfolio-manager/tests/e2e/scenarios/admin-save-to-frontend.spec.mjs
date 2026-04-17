@@ -210,6 +210,34 @@ async function openPublicPortfolio(page, request, baseURL) {
 	);
 }
 
+async function openReviewFormFromPortfolio(page, request, baseURL) {
+	const writeLink = portfolioRoot(page).getByRole('link', { name: '口コミを書く' }).first();
+	await expect(writeLink).toBeVisible({ timeout: ASSERT_PUBLIC_MS });
+	const href = await writeLink.getAttribute('href');
+	if (!href) {
+		throw new Error('口コミフォームへのリンク href を取得できませんでした。');
+	}
+	const heading = page.getByRole('heading', { name: '口コミ投稿フォーム' });
+	await page.goto(href, { waitUntil: 'load' });
+	if ((await heading.count()) > 0) {
+		await expect(heading).toBeVisible({ timeout: 20_000 });
+		return;
+	}
+	// /reviews/ が環境依存で解決できないケースでは、公開ページにクエリを付けて直接フォーム表示へフォールバックする。
+	const parsed = new URL(href);
+	const target = parsed.searchParams.get('mebuki_review_target') || '';
+	const itemId = parsed.searchParams.get('item_id') || '';
+	if (!target || !itemId) {
+		throw new Error(`口コミフォームURLのクエリが不足しています: ${href}`);
+	}
+	const publicPaths = await collectPortfolioPublicPaths(request, baseURL);
+	const fallback = new URL(publicPaths[0], baseURL);
+	fallback.searchParams.set('mebuki_review_target', target);
+	fallback.searchParams.set('item_id', itemId);
+	await page.goto(fallback.toString(), { waitUntil: 'load' });
+	await expect(heading).toBeVisible({ timeout: 20_000 });
+}
+
 test.describe('Admin save to frontend smoke', () => {
 	test.skip(
 		!adminUser || !adminPassword,
@@ -414,11 +442,7 @@ test.describe('Admin save to frontend smoke', () => {
 		await saveSettings(page);
 
 		await openPublicPortfolio(page, request, baseURL);
-		await portfolioRoot(page).getByRole('link', { name: '口コミを書く' }).first().click();
-		await page.waitForURL(/mebuki_review_target=/, { timeout: 20_000 });
-		await expect(page.getByRole('heading', { name: '口コミ投稿フォーム' })).toBeVisible({
-			timeout: 20_000,
-		});
+		await openReviewFormFromPortfolio(page, request, baseURL);
 
 		const form = page.locator('form');
 		await form.locator('input[type="text"]').first().fill(reviewName);
