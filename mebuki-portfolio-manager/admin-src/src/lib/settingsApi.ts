@@ -20,17 +20,51 @@ function settingsMeUrl( root: string ): string {
 	return `${ base }mebuki-pm/v1/settings/me`;
 }
 
+function settingsMeFallbackUrl( root: string ): string {
+	const originRoot = ( root || '/' ).trim();
+	let origin = '';
+	try {
+		const u = new URL( originRoot, window.location.origin );
+		origin = `${ u.origin }${ u.pathname.startsWith( '/' ) ? '' : '/' }`;
+	} catch {
+		origin = window.location.origin + '/';
+	}
+	const basePath = origin.endsWith( '/' ) ? origin : `${ origin }/`;
+	return `${ basePath }?rest_route=/mebuki-pm/v1/settings/me`;
+}
+
+async function fetchSettingsMeWithFallback(
+	root: string,
+	nonce: string,
+	init?: Omit<RequestInit, 'headers'>
+): Promise<Response> {
+	const headers: HeadersInit = {
+		Accept: 'application/json',
+		'X-WP-Nonce': nonce,
+		...( init?.method && init.method !== 'GET'
+			? { 'Content-Type': 'application/json' }
+			: {} ),
+	};
+	const first = await fetch( settingsMeUrl( root ), {
+		...init,
+		credentials: 'same-origin',
+		headers,
+	} );
+	if ( first.status !== 404 ) {
+		return first;
+	}
+	return fetch( settingsMeFallbackUrl( root ), {
+		...init,
+		credentials: 'same-origin',
+		headers,
+	} );
+}
+
 export async function fetchSettingsMe(
 	root: string,
 	nonce: string
 ): Promise<SettingsMeResponse> {
-	const res = await fetch( settingsMeUrl( root ), {
-		credentials: 'same-origin',
-		headers: {
-			Accept: 'application/json',
-			'X-WP-Nonce': nonce,
-		},
-	} );
+	const res = await fetchSettingsMeWithFallback( root, nonce );
 	if ( ! res.ok ) {
 		throw new Error( await readErrorMessage( res ) );
 	}
@@ -42,14 +76,8 @@ export async function saveSettingsMe(
 	nonce: string,
 	payload: Record<string, unknown>
 ): Promise<void> {
-	const res = await fetch( settingsMeUrl( root ), {
+	const res = await fetchSettingsMeWithFallback( root, nonce, {
 		method: 'POST',
-		credentials: 'same-origin',
-		headers: {
-			Accept: 'application/json',
-			'Content-Type': 'application/json',
-			'X-WP-Nonce': nonce,
-		},
 		body: JSON.stringify( payload ),
 	} );
 	if ( ! res.ok ) {
