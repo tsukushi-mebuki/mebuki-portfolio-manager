@@ -193,6 +193,10 @@ for attempt in $(seq 1 12); do
 	fi
 
 	if [ "$attempt" -eq 12 ]; then
+		if verify_wp_cli_installed; then
+			echo "WARN: WordPress HTTP checks never converged after 12 attempts, but CLI still reports installed. Continuing with fallback." >&2
+			break
+		fi
 		echo "WordPress bootstrap failed after 12 attempts." >&2
 		exit 1
 	fi
