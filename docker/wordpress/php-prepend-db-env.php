@@ -11,7 +11,8 @@ $mebuki_defaults = array(
 	'WORDPRESS_DB_PASSWORD' => 'wordpress',
 );
 foreach ( $mebuki_defaults as $key => $value ) {
-	if ( getenv( $key ) === false ) {
+	$cur = getenv( $key );
+	if ( false === $cur || '' === $cur ) {
 		putenv( $key . '=' . $value );
 	}
 }

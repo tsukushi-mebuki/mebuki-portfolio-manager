@@ -37,9 +37,8 @@ services:
       - ./mebuki-portfolio-manager:/var/www/html/wp-content/plugins/mebuki-portfolio-manager
       # mod_php が getenv で DB 接続できるよう Apache に渡す（E2E/CI で CLI と Web の DB 不一致を防ぐ）
       - ./docker/wordpress/apache-php-env.conf:/etc/apache2/conf-enabled/wordpress-php-env.conf:ro
-      # PassEnv/SetEnv だけでは getenv が空のままの環境向け: wp-config より前に putenv
+      # wp-config より前に putenv（Apache は apache-php-env.conf の php_admin_value で参照）
       - ./docker/wordpress/php-prepend-db-env.php:/usr/local/lib/mebuki-php-prepend-db-env.php:ro
-      - ./docker/wordpress/php-mebuki-db-env.ini:/usr/local/etc/php/conf.d/mebuki-db-env.ini:ro
 
   composer:
     image: composer:2
