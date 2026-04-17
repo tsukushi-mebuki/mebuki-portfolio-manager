@@ -11,19 +11,44 @@ function portfolioRoot(page) {
 
 const ASSERT_PUBLIC_MS = 45_000;
 const HYDRATE_MS = 60_000;
-const ADMIN_READY_MS = 60_000;
+/** 管理画面: ログイン後の遷移・REST GET・メイン UI 描画まで（CI では読み込みが遅いことがある） */
+const ADMIN_READY_MS = 120_000;
+
+/** ログイン成功後の URL（クエリの redirect_to に含まれる wp-admin では誤判定しない） */
+function isWpAdminAfterLogin(url) {
+	const p = url.pathname;
+	if (p.includes('wp-login')) {
+		return false;
+	}
+	if (p.includes('install.php') || p.includes('setup-config.php')) {
+		return false;
+	}
+	return p === '/wp-admin' || p === '/wp-admin/' || p.startsWith('/wp-admin/');
+}
+
+/** プラグイン設定画面（admin.php?page=mebuki-pm） */
+function isMebukiPmScreen(url) {
+	return url.pathname.endsWith('admin.php') && url.searchParams.get('page') === 'mebuki-pm';
+}
 
 async function waitForAdminReady(page, baseURL) {
-	await page.goto(new URL(adminPath, baseURL).toString(), { waitUntil: 'domcontentloaded' });
-	await page.waitForURL(/wp-admin\/admin\.php\?page=mebuki-pm/, { timeout: ADMIN_READY_MS });
-
-	// 言語差異や見出し描画タイミングに依存しない、安定したUI要素で待機する。
-	await expect(
-		page
-			.locator('[data-section-id="credo"]')
-			.or(page.getByRole('button', { name: '保存' }))
-			.first()
-	).toBeVisible({ timeout: ADMIN_READY_MS });
+	const adminUrl = new URL(adminPath, baseURL).toString();
+	// SettingsEditor は設定 GET 完了まで「保存」もセクションも出さない（読み込み中のみ）
+	const settingsLoaded = page.waitForResponse(
+		(resp) =>
+			resp.request().method() === 'GET' &&
+			resp.url().includes('/wp-json/') &&
+			resp.url().includes('mebuki-pm/v1/settings/me') &&
+			resp.status() >= 200 &&
+			resp.status() < 300,
+		{ timeout: ADMIN_READY_MS }
+	);
+	await page.goto(adminUrl, { waitUntil: 'load' });
+	await page.waitForURL(isMebukiPmScreen, { timeout: ADMIN_READY_MS });
+	await settingsLoaded;
+	await expect(page.getByRole('heading', { name: 'サイト表示マスター' })).toBeVisible({
+		timeout: ADMIN_READY_MS,
+	});
 }
 
 async function loginAndOpenAdmin(page, baseURL) {
@@ -31,7 +56,7 @@ async function loginAndOpenAdmin(page, baseURL) {
 	await page.locator('#user_login').fill(adminUser);
 	await page.locator('#user_pass').fill(adminPassword);
 	await page.locator('#wp-submit').click();
-	await page.waitForURL(/wp-admin/);
+	await page.waitForURL(isWpAdminAfterLogin, { timeout: 60_000 });
 	await waitForAdminReady(page, baseURL);
 }
 
