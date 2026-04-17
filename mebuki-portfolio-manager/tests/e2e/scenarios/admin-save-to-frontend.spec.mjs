@@ -116,9 +116,14 @@ async function collectPortfolioPublicPaths(request, baseURL) {
 	if (!base) {
 		throw new Error('Playwright の baseURL が空です。E2E_BASE_URL を設定してください。');
 	}
-	const res = await request.get(`${base}/wp-json/wp/v2/pages`, {
-		params: { slug: 'portfolio-e2e', per_page: '1' },
-	});
+	const params = { slug: 'portfolio-e2e', per_page: '1' };
+	let res = await request.get(`${base}/wp-json/wp/v2/pages`, { params });
+	if (!res.ok() && res.status() === 404) {
+		// CI で rewrite が未収束なときは ?rest_route 経由にフォールバックする。
+		res = await request.get(`${base}/`, {
+			params: { rest_route: '/wp/v2/pages', ...params },
+		});
+	}
 	if (!res.ok()) {
 		throw new Error(
 			`WP REST が ${res.status()} を返しました。E2E_BASE_URL と WordPress の起動を確認してください。`
