@@ -218,18 +218,26 @@ async function openReviewFormFromPortfolio(page, request, baseURL) {
 		throw new Error('口コミフォームへのリンク href を取得できませんでした。');
 	}
 	const heading = page.getByRole('heading', { name: '口コミ投稿フォーム' });
-	await page.goto(href, { waitUntil: 'load' });
-	if ((await heading.count()) > 0) {
-		await expect(heading).toBeVisible({ timeout: 20_000 });
-		return;
-	}
-	// /reviews/ が環境依存で解決できないケースでは、公開ページにクエリを付けて直接フォーム表示へフォールバックする。
 	const parsed = new URL(href);
 	const target = parsed.searchParams.get('mebuki_review_target') || '';
 	const itemId = parsed.searchParams.get('item_id') || '';
 	if (!target || !itemId) {
 		throw new Error(`口コミフォームURLのクエリが不足しています: ${href}`);
 	}
+	await page.goto(href, { waitUntil: 'load' });
+	const hasHeading = (await heading.count()) > 0;
+	if (hasHeading) {
+		await expect(heading).toBeVisible({ timeout: 20_000 });
+		const canSubmitOnThisPage = await page.evaluate(() => {
+			const root = window.mebukiPmSettings?.root;
+			const uid = window.mebukiPmSettings?.portfolioUserId;
+			return Boolean(root && typeof uid === 'number' && uid > 0);
+		});
+		if (canSubmitOnThisPage) {
+			return;
+		}
+	}
+	// /reviews/ が環境依存で解決できないケースでは、公開ページにクエリを付けて直接フォーム表示へフォールバックする。
 	const publicPaths = await collectPortfolioPublicPaths(request, baseURL);
 	const fallback = new URL(publicPaths[0], baseURL);
 	fallback.searchParams.set('mebuki_review_target', target);
@@ -447,7 +455,9 @@ test.describe('Admin save to frontend smoke', () => {
 		const form = page.locator('form');
 		await form.locator('input[type="text"]').first().fill(reviewName);
 		await form.locator('textarea').first().fill(reviewText);
-		await page.getByRole('button', { name: '口コミを投稿する' }).click();
+		const submitButton = page.getByRole('button', { name: '口コミを投稿する' });
+		await expect(submitButton).toBeEnabled({ timeout: 20_000 });
+		await submitButton.click();
 		await expect(page.getByText('口コミを送信しました。')).toBeVisible({ timeout: 15_000 });
 
 		await waitForAdminReady(page, baseURL);
