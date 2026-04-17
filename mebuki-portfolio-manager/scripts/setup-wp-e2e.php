@@ -18,7 +18,13 @@ $admin_password = getenv( 'E2E_ADMIN_PASSWORD' ) ?: 'password';
 $admin_email    = 'admin@example.com';
 
 if ( ! is_blog_installed() ) {
-	wp_install( $site_title, $admin_user, $admin_email, true, '', $admin_password );
+	// 第7引数でロケールを固定（未インストール時の Web インストーラ言語画面とは別経路で完了させる）
+	wp_install( $site_title, $admin_user, $admin_email, true, '', $admin_password, 'en_US' );
+	global $wpdb;
+	if ( $wpdb->last_error ) {
+		fwrite( STDERR, 'wp_install DB error: ' . $wpdb->last_error . PHP_EOL );
+		exit( 1 );
+	}
 }
 
 if ( ! is_blog_installed() ) {
