@@ -261,7 +261,7 @@ async function openReviewFormFromPortfolio(page, request, baseURL) {
 }
 
 async function fillReviewFormAndSubmit(page, reviewName, reviewText) {
-	const form = page.locator('form');
+	const form = page.locator('form[novalidate]').first();
 	const nameInput = form.locator('input[type="text"]').first();
 	const textArea = form.locator('textarea').first();
 	const submitButton = page.getByRole('button', { name: '口コミを投稿する' });
