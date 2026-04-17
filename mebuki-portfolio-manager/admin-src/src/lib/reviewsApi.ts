@@ -20,22 +20,52 @@ function reviewsMeUrl( root: string ): string {
 	return `${ base }mebuki-pm/v1/reviews/me`;
 }
 
+function reviewsMeFallbackUrl( root: string ): string {
+	const originRoot = ( root || '/' ).trim();
+	let origin = '';
+	try {
+		const u = new URL( originRoot, window.location.origin );
+		origin = `${ u.origin }${ u.pathname.startsWith( '/' ) ? '' : '/' }`;
+	} catch {
+		origin = window.location.origin + '/';
+	}
+	const basePath = origin.endsWith( '/' ) ? origin : `${ origin }/`;
+	return `${ basePath }?rest_route=/mebuki-pm/v1/reviews/me`;
+}
+
 function reviewItemUrl( root: string, id: number ): string {
 	const base = root.endsWith( '/' ) ? root : `${ root }/`;
 	return `${ base }mebuki-pm/v1/reviews/${ id }`;
+}
+
+function reviewItemFallbackUrl( root: string, id: number ): string {
+	const originRoot = ( root || '/' ).trim();
+	let origin = '';
+	try {
+		const u = new URL( originRoot, window.location.origin );
+		origin = `${ u.origin }${ u.pathname.startsWith( '/' ) ? '' : '/' }`;
+	} catch {
+		origin = window.location.origin + '/';
+	}
+	const basePath = origin.endsWith( '/' ) ? origin : `${ origin }/`;
+	return `${ basePath }?rest_route=/mebuki-pm/v1/reviews/${ id }`;
 }
 
 export async function fetchReviewsMe(
 	root: string,
 	nonce: string
 ): Promise<ReviewRow[]> {
-	const res = await fetch( reviewsMeUrl( root ), {
+	const req: RequestInit = {
 		credentials: 'same-origin',
 		headers: {
 			Accept: 'application/json',
 			'X-WP-Nonce': nonce,
 		},
-	} );
+	};
+	let res = await fetch( reviewsMeUrl( root ), req );
+	if ( res.status === 404 ) {
+		res = await fetch( reviewsMeFallbackUrl( root ), req );
+	}
 	if ( ! res.ok ) {
 		throw new Error( await readErrorMessage( res ) );
 	}
@@ -52,7 +82,7 @@ export async function patchReviewVisibility(
 	reviewId: number,
 	visibility: 'public' | 'private'
 ): Promise<ReviewRow> {
-	const res = await fetch( reviewItemUrl( root, reviewId ), {
+	const req: RequestInit = {
 		method: 'PATCH',
 		credentials: 'same-origin',
 		headers: {
@@ -61,7 +91,11 @@ export async function patchReviewVisibility(
 			'X-WP-Nonce': nonce,
 		},
 		body: JSON.stringify( { visibility } ),
-	} );
+	};
+	let res = await fetch( reviewItemUrl( root, reviewId ), req );
+	if ( res.status === 404 ) {
+		res = await fetch( reviewItemFallbackUrl( root, reviewId ), req );
+	}
 	if ( ! res.ok ) {
 		throw new Error( await readErrorMessage( res ) );
 	}
