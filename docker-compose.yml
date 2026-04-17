@@ -35,10 +35,8 @@ services:
       WORDPRESS_DB_NAME: wordpress
     volumes:
       - ./mebuki-portfolio-manager:/var/www/html/wp-content/plugins/mebuki-portfolio-manager
-      # mod_php が getenv で DB 接続できるよう Apache に渡す（E2E/CI で CLI と Web の DB 不一致を防ぐ）
-      - ./docker/wordpress/apache-php-env.conf:/etc/apache2/conf-enabled/wordpress-php-env.conf:ro
-      # wp-config より前に putenv（Apache は apache-php-env.conf の php_admin_value で参照）
-      - ./docker/wordpress/php-prepend-db-env.php:/usr/local/lib/mebuki-php-prepend-db-env.php:ro
+      # CLI / mod_php で DB 設定差分が出ないよう、E2E 用 wp-config を固定で使う。
+      - ./docker/wordpress/wp-config-ci.php:/var/www/html/wp-config.php:ro
 
   composer:
     image: composer:2
