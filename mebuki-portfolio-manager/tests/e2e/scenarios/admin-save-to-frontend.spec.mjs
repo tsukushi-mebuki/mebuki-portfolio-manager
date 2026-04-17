@@ -11,6 +11,20 @@ function portfolioRoot(page) {
 
 const ASSERT_PUBLIC_MS = 45_000;
 const HYDRATE_MS = 60_000;
+const ADMIN_READY_MS = 60_000;
+
+async function waitForAdminReady(page, baseURL) {
+	await page.goto(new URL(adminPath, baseURL).toString(), { waitUntil: 'domcontentloaded' });
+	await page.waitForURL(/wp-admin\/admin\.php\?page=mebuki-pm/, { timeout: ADMIN_READY_MS });
+
+	// 言語差異や見出し描画タイミングに依存しない、安定したUI要素で待機する。
+	await expect(
+		page
+			.locator('[data-section-id="credo"]')
+			.or(page.getByRole('button', { name: '保存' }))
+			.first()
+	).toBeVisible({ timeout: ADMIN_READY_MS });
+}
 
 async function loginAndOpenAdmin(page, baseURL) {
 	await page.goto('/wp-login.php');
@@ -18,8 +32,7 @@ async function loginAndOpenAdmin(page, baseURL) {
 	await page.locator('#user_pass').fill(adminPassword);
 	await page.locator('#wp-submit').click();
 	await page.waitForURL(/wp-admin/);
-	await page.goto(new URL(adminPath, baseURL).toString());
-	await expect(page.getByRole('heading', { name: 'サイト表示マスター' })).toBeVisible();
+	await waitForAdminReady(page, baseURL);
 }
 
 const sectionTitleById = {
@@ -372,8 +385,7 @@ test.describe('Admin save to frontend smoke', () => {
 		await page.getByRole('button', { name: '口コミを投稿する' }).click();
 		await expect(page.getByText('口コミを送信しました。')).toBeVisible({ timeout: 15_000 });
 
-		await page.goto(new URL(adminPath, baseURL).toString());
-		await expect(page.getByRole('heading', { name: 'サイト表示マスター' })).toBeVisible();
+		await waitForAdminReady(page, baseURL);
 
 		const reviewRow = sectionCard(page, 'reviews').locator('div').filter({
 			hasText: reviewName,
