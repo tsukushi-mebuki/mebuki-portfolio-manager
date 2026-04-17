@@ -67,25 +67,8 @@ async function loginAndOpenAdmin(page, baseURL) {
 	await waitForAdminReady(page, baseURL);
 }
 
-const sectionTitleById = {
-	credo: 'クレド',
-	about: '自己紹介（About）',
-	youtube_gallery: 'YouTubeギャラリー',
-	illustration_gallery: 'イラストギャラリー',
-	link_cards: 'リンクカード',
-	pricing: '料金表',
-	faq: 'FAQ',
-	reviews: '口コミ',
-};
-
 function sectionCard(page, sectionId) {
-	const title = sectionTitleById[sectionId];
-	const byDataId = page.locator(`[data-section-id="${sectionId}"]`).first();
-	const byHeading = page
-		.locator('div')
-		.filter({ has: page.getByRole('heading', { name: title }) })
-		.first();
-	return byDataId.or(byHeading);
+	return page.locator(`[data-section-id="${sectionId}"]`).first();
 }
 
 async function saveSettings(page) {
@@ -314,10 +297,14 @@ test.describe('Admin save to frontend smoke', () => {
 
 		await loginAndOpenAdmin(page, baseURL);
 		const card = sectionCard(page, 'illustration_gallery');
+		await expect(card).toBeVisible({ timeout: ADMIN_READY_MS });
 		if ((await card.getByPlaceholder('表示名').count()) === 0) {
 			await card.getByRole('button', { name: '＋ イラストを追加' }).click();
 		}
 		await card.getByPlaceholder('表示名').first().fill(title);
+		await expect(card.getByPlaceholder('https://...').first()).toBeVisible({
+			timeout: ADMIN_READY_MS,
+		});
 		await card.getByPlaceholder('https://...').first().fill(url);
 		await saveSettings(page);
 
@@ -351,18 +338,24 @@ test.describe('Admin save to frontend smoke', () => {
 	test('料金表: 保存内容が公開ページへ反映される', async ({ page, request, baseURL }) => {
 		const marker = Date.now().toString();
 		const category = `E2E Category ${marker}`;
+		const courseName = `E2E Course ${marker}`;
 
 		await loginAndOpenAdmin(page, baseURL);
 		const card = sectionCard(page, 'pricing');
+		await expect(card).toBeVisible({ timeout: ADMIN_READY_MS });
 
 		if ((await card.getByPlaceholder('例: イラスト制作').count()) === 0) {
 			await card.getByRole('button', { name: '＋ カテゴリを追加' }).click();
 		}
 		await card.getByPlaceholder('例: イラスト制作').first().fill(category);
+		if ((await card.locator('input[type="text"]').count()) < 2) {
+			await card.getByRole('button', { name: '＋ コースを追加' }).first().click();
+		}
+		await card.locator('input[type="text"]').nth(1).fill(courseName);
 		await saveSettings(page);
 
 		await openPublicPortfolio(page, request, baseURL);
-		await expect(portfolioRoot(page).getByText(category)).toBeVisible({
+		await expect(portfolioRoot(page).getByText(courseName)).toBeVisible({
 			timeout: ASSERT_PUBLIC_MS,
 		});
 	});
@@ -382,7 +375,12 @@ test.describe('Admin save to frontend smoke', () => {
 		await saveSettings(page);
 
 		await openPublicPortfolio(page, request, baseURL);
-		await portfolioRoot(page).getByText(question).first().click();
+		const questionNode = portfolioRoot(page).getByText(question).first();
+		await expect(questionNode).toBeVisible({ timeout: ASSERT_PUBLIC_MS });
+		const answerNode = portfolioRoot(page).getByText(answer);
+		if ((await answerNode.count()) === 0) {
+			await questionNode.click();
+		}
 		await expect(portfolioRoot(page).getByText(answer)).toBeVisible({
 			timeout: ASSERT_PUBLIC_MS,
 		});
@@ -417,7 +415,10 @@ test.describe('Admin save to frontend smoke', () => {
 
 		await openPublicPortfolio(page, request, baseURL);
 		await portfolioRoot(page).getByRole('link', { name: '口コミを書く' }).first().click();
-		await expect(page.getByRole('heading', { name: '口コミ投稿フォーム' })).toBeVisible();
+		await page.waitForURL(/mebuki_review_target=/, { timeout: 20_000 });
+		await expect(page.getByRole('heading', { name: '口コミ投稿フォーム' })).toBeVisible({
+			timeout: 20_000,
+		});
 
 		const form = page.locator('form');
 		await form.locator('input[type="text"]').first().fill(reviewName);
