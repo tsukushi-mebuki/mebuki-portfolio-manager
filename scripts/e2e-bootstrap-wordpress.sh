@@ -138,8 +138,38 @@ exit( is_blog_installed() ? 0 : 1 );
 EOPHP
 }
 
+reconcile_wp_http_state() {
+	docker compose exec -T \
+		-e E2E_BASE_URL="${E2E_BASE_URL:-http://localhost:8000}" \
+		wordpress php <<'EOPHP'
+<?php
+$site_url = getenv( 'E2E_BASE_URL' ) ?: 'http://localhost:8000';
+$parsed   = parse_url( $site_url );
+if ( is_array( $parsed ) && ! empty( $parsed['host'] ) ) {
+	$host = $parsed['host'];
+	if ( ! empty( $parsed['port'] ) ) {
+		$host .= ':' . $parsed['port'];
+	}
+	$_SERVER['HTTP_HOST']   = $host;
+	$_SERVER['HTTPS']       = ( isset( $parsed['scheme'] ) && 'https' === $parsed['scheme'] ) ? 'on' : 'off';
+	$_SERVER['SERVER_NAME'] = $parsed['host'];
+	$_SERVER['REQUEST_URI'] = '/';
+	$_SERVER['SERVER_PORT'] = ! empty( $parsed['port'] )
+		? (string) (int) $parsed['port']
+		: ( ( isset( $parsed['scheme'] ) && 'https' === $parsed['scheme'] ) ? '443' : '80' );
+}
+require '/var/www/html/wp-load.php';
+update_option( 'siteurl', $site_url );
+update_option( 'home', $site_url );
+if ( function_exists( 'wp_cache_flush' ) ) {
+	wp_cache_flush();
+}
+EOPHP
+	docker compose exec -T wordpress apache2ctl -k graceful >/dev/null 2>&1 || true
+}
+
 echo "==> Running setup-wp-e2e.php (with retries for CI DB / entrypoint races)..."
-for attempt in $(seq 1 5); do
+for attempt in $(seq 1 12); do
 	setup_rc=0
 	docker compose exec -T \
 		-e E2E_BASE_URL="${E2E_BASE_URL:-http://localhost:8000}" \
@@ -155,12 +185,13 @@ for attempt in $(seq 1 5); do
 			break
 		fi
 		echo "WARN: is_blog_installed is true but HTTP still looks like the installer; retrying..." >&2
+		reconcile_wp_http_state
 	else
 		echo "WARN: is_blog_installed check failed after setup (attempt ${attempt})." >&2
 	fi
 
-	if [ "$attempt" -eq 5 ]; then
-		echo "WordPress bootstrap failed after 5 attempts." >&2
+	if [ "$attempt" -eq 12 ]; then
+		echo "WordPress bootstrap failed after 12 attempts." >&2
 		exit 1
 	fi
 	sleep 5
