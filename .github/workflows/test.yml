@@ -90,11 +90,18 @@ jobs:
         run: docker compose up -d db wordpress
 
       - name: Debug Apache/HTTP state
+        continue-on-error: true
         run: |
-          docker compose exec -T wordpress apache2ctl -t
-          docker compose exec -T wordpress curl -fsSIL -o /dev/null -w '%{url_effective}\n' http://127.0.0.1/wp-login.php
-          docker compose exec -T wordpress php -r "echo 'DB_HOST getenv='.(getenv('WORDPRESS_DB_HOST')===false?'(false)':getenv('WORDPRESS_DB_HOST')).PHP_EOL;"
-          docker compose exec -T wordpress php -r "require '/var/www/html/wp-load.php'; echo 'is_blog_installed='.(is_blog_installed()?'1':'0').PHP_EOL;"
+          docker compose exec -T wordpress apache2ctl -t || true
+          for i in $(seq 1 20); do
+            if docker compose exec -T wordpress curl -fsSI http://127.0.0.1/ >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+          docker compose exec -T wordpress curl -fsSIL -o /dev/null -w '%{url_effective}\n' http://127.0.0.1/wp-login.php || true
+          docker compose exec -T wordpress php -r "echo 'DB_HOST getenv='.(getenv('WORDPRESS_DB_HOST')===false?'(false)':getenv('WORDPRESS_DB_HOST')).PHP_EOL;" || true
+          docker compose exec -T wordpress php -r "require '/var/www/html/wp-load.php'; echo 'is_blog_installed='.(is_blog_installed()?'1':'0').PHP_EOL;" || true
 
       - name: Bootstrap WordPress for E2E
         env:
