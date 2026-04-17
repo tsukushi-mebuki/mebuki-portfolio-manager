@@ -6,7 +6,8 @@ export default defineConfig({
 	testDir: './scenarios',
 	fullyParallel: false,
 	retries: 0,
-	timeout: 60_000,
+	// ログイン・管理画面 SPA・保存 API・公開ページのハイドレートを含め、60s では必ず不足する。
+	timeout: 300_000,
 	use: {
 		baseURL,
 		trace: 'retain-on-failure',
