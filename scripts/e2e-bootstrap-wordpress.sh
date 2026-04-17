@@ -6,6 +6,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+# Git Bash (MSYS) on Windows may rewrite /var/... arguments passed to docker.exe.
+# Disable path conversion so container absolute paths stay intact.
+if [ -n "${MSYSTEM:-}" ]; then
+	export MSYS_NO_PATHCONV=1
+	export MSYS2_ARG_CONV_EXCL='*'
+fi
+
 docker compose ps 2>/dev/null || true
 
 SETUP_IN_CONTAINER="/var/www/html/wp-content/plugins/mebuki-portfolio-manager/scripts/setup-wp-e2e.php"
@@ -61,27 +68,46 @@ for i in $(seq 1 60); do
 	sleep 2
 done
 
-verify_wp_http_installed() {
-	local final path
-	# 未インストール時は wp-login が install.php へ飛ぶ。
-	# 全文 grep だと ?redirect_to=...%2Fwp-admin%2Finstall.php ... のクエリに誤マッチするため、パスのみ見る。
-	final="$(curl -fsSL -o /dev/null -w '%{url_effective}' "${E2E_BASE_URL}/wp-login.php")" || return 1
-	if [[ "$final" =~ ^https?://[^/]+(/[^?#]*) ]]; then
+is_installer_path() {
+	local url path
+	url="$1"
+	if [[ "$url" =~ ^https?://[^/]+(/[^?#]*) ]]; then
 		path="${BASH_REMATCH[1]}"
 	else
 		path=""
 	fi
 	case "$path" in
-		/wp-admin/install.php|*/wp-admin/install.php)
-			echo "verify_wp_http_installed: on installer path path=${path} url=${final}" >&2
-			return 1
-			;;
-		/wp-admin/setup-config.php|*/wp-admin/setup-config.php)
-			echo "verify_wp_http_installed: on setup-config path=${path} url=${final}" >&2
-			return 1
-			;;
-		*) return 0 ;;
+		/wp-admin/install.php|*/wp-admin/install.php|/wp-admin/setup-config.php|*/wp-admin/setup-config.php) return 0 ;;
+		*) return 1 ;;
 	esac
+}
+
+verify_wp_http_installed() {
+	local final_root final_admin final_login
+	local status_root status_admin status_login
+	local tmp_root tmp_admin tmp_login
+
+	# wp-login 単体だと一時的・環境依存のリダイレクトで誤判定しやすいため、
+	# ルートと wp-admin も合わせて判定する。
+	tmp_root="$(mktemp)"
+	tmp_admin="$(mktemp)"
+	tmp_login="$(mktemp)"
+	trap 'rm -f "$tmp_root" "$tmp_admin" "$tmp_login"' RETURN
+
+	final_root="$(curl -fsSL -o "$tmp_root" -w '%{url_effective}' "${E2E_BASE_URL}/")" || return 1
+	final_admin="$(curl -fsSL -o "$tmp_admin" -w '%{url_effective}' "${E2E_BASE_URL}/wp-admin/")" || return 1
+	final_login="$(curl -fsSL -o "$tmp_login" -w '%{url_effective}' "${E2E_BASE_URL}/wp-login.php")" || return 1
+	status_root="$(curl -fsSL -o "$tmp_root" -w '%{http_code}' "${E2E_BASE_URL}/")" || status_root="(curl-failed)"
+	status_admin="$(curl -fsSL -o "$tmp_admin" -w '%{http_code}' "${E2E_BASE_URL}/wp-admin/")" || status_admin="(curl-failed)"
+	status_login="$(curl -fsSL -o "$tmp_login" -w '%{http_code}' "${E2E_BASE_URL}/wp-login.php")" || status_login="(curl-failed)"
+
+	echo "verify_wp_http_installed: root=${final_root} status=${status_root}; admin=${final_admin} status=${status_admin}; login=${final_login} status=${status_login}" >&2
+
+	if is_installer_path "$final_root" && is_installer_path "$final_admin" && is_installer_path "$final_login"; then
+		echo "verify_wp_http_installed: installer-like redirects root=${final_root} admin=${final_admin} login=${final_login}" >&2
+		return 1
+	fi
+	return 0
 }
 
 # wp-load 時に HTTP_HOST が無いと警告・挙動がずれるため、setup-wp-e2e.php と同様に CLI 用 $_SERVER を付与する
