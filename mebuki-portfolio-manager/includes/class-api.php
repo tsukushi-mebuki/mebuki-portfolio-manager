@@ -473,12 +473,14 @@ class Mebuki_PM_API {
 			),
 			ARRAY_A
 		);
+		$normalized_order = self::normalize_order_row( $created );
+		self::send_inquiry_confirmation_mail( $normalized_order );
 
 		return rest_ensure_response(
 			array(
 				'success'    => true,
 				'idempotent' => false,
-				'order'      => self::normalize_order_row( $created ),
+				'order'      => $normalized_order,
 			)
 		);
 	}
@@ -498,6 +500,75 @@ class Mebuki_PM_API {
 			}
 		}
 		return '';
+	}
+
+	/**
+	 * Resolve notification sender email from settings.
+	 *
+	 * @param int $user_id Portfolio owner user id.
+	 * @return string
+	 */
+	private static function get_contact_sender_email_for_user( $user_id ) {
+		$option = get_option( 'mebuki_pm_settings_' . absint( $user_id ), array() );
+		if ( is_array( $option ) && isset( $option['admin_email'] ) && is_string( $option['admin_email'] ) ) {
+			$admin_email = sanitize_email( $option['admin_email'] );
+			if ( '' !== $admin_email && is_email( $admin_email ) ) {
+				return $admin_email;
+			}
+		}
+		return get_option( 'admin_email' );
+	}
+
+	/**
+	 * Send confirmation mail to inquiry sender.
+	 *
+	 * @param array $order Normalized order row.
+	 * @return void
+	 */
+	private static function send_inquiry_confirmation_mail( $order ) {
+		if ( empty( $order ) || ! is_array( $order ) ) {
+			return;
+		}
+		$to = isset( $order['client_email'] ) ? sanitize_email( (string) $order['client_email'] ) : '';
+		if ( '' === $to || ! is_email( $to ) ) {
+			return;
+		}
+
+		$user_id = isset( $order['user_id'] ) ? absint( $order['user_id'] ) : 0;
+		if ( 0 === $user_id ) {
+			return;
+		}
+
+		$site_name = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
+		$subject = sprintf( '[%s] お問い合わせを受け付けました', $site_name );
+		$client_name = isset( $order['client_name'] ) ? trim( (string) $order['client_name'] ) : '';
+		$uuid = isset( $order['uuid'] ) ? (string) $order['uuid'] : '';
+		$total_amount = isset( $order['total_amount'] ) ? (int) $order['total_amount'] : 0;
+		$name_label = '' !== $client_name ? $client_name . ' 様' : 'お客様';
+
+		$lines = array(
+			$name_label,
+			'',
+			'お問い合わせありがとうございます。',
+			'以下の内容で受け付けました。',
+			'',
+			'受付番号: ' . $uuid,
+			'合計金額: ¥' . number_format_i18n( $total_amount ),
+			'',
+			'内容を確認のうえ、追ってご連絡いたします。',
+			'',
+			'---',
+			$site_name,
+		);
+		$message = implode( "\n", $lines );
+
+		$sender = self::get_contact_sender_email_for_user( $user_id );
+		$headers = array( 'Content-Type: text/plain; charset=UTF-8' );
+		if ( '' !== $sender && is_email( $sender ) ) {
+			$headers[] = 'Reply-To: ' . $sender;
+		}
+
+		wp_mail( $to, $subject, $message, $headers );
 	}
 
 	/**
