@@ -20,3 +20,12 @@ export function publishedReviewsUrl( restRoot: string, userId: number ): string 
 	u.searchParams.set( 'user_id', String( userId ) );
 	return u.href;
 }
+
+export function publishedReviewsUrlBySlug(
+	restRoot: string,
+	userSlug: string
+): string {
+	const u = new URL( joinRestPath( restRoot, 'mebuki-pm/v1/reviews/published' ) );
+	u.searchParams.set( 'user_slug', userSlug );
+	return u.href;
+}

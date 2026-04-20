@@ -135,9 +135,14 @@ class Mebuki_PM_Admin {
 			self::SCRIPT_HANDLE,
 			'mebukiPmRest',
 			array(
-				'root'    => esc_url_raw( rest_url() ),
-				'nonce'   => wp_create_nonce( 'wp_rest' ),
-				'siteUrl' => esc_url_raw( home_url( '/' ) ),
+				'root'          => esc_url_raw( rest_url() ),
+				'nonce'         => wp_create_nonce( 'wp_rest' ),
+				'siteUrl'       => esc_url_raw( home_url( '/' ) ),
+				'portfolioPath' => esc_url_raw(
+					home_url(
+						'/' . Mebuki_PM_Frontend::BASE_PATH . '/' . sanitize_title( (string) wp_get_current_user()->user_nicename ) . '/'
+					)
+				),
 			)
 		);
 

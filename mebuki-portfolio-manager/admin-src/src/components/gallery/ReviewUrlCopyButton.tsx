@@ -5,6 +5,7 @@ type ReviewTargetType = 'youtube' | 'illustration';
 
 type Props = {
 	siteUrl: string | undefined;
+	portfolioPath: string | undefined;
 	itemType: ReviewTargetType;
 	itemId: string;
 	onNotify: ( message: string, variant: ToastVariant ) => void;
@@ -12,6 +13,7 @@ type Props = {
 
 export function ReviewUrlCopyButton( {
 	siteUrl,
+	portfolioPath,
 	itemType,
 	itemId,
 	onNotify,
@@ -23,7 +25,12 @@ export function ReviewUrlCopyButton( {
 		if ( disabled || ! siteUrl ) {
 			return;
 		}
-		const url = buildReviewCollectionUrl( siteUrl, itemType, trimmedId );
+		const url = buildReviewCollectionUrl(
+			siteUrl,
+			itemType,
+			trimmedId,
+			portfolioPath
+		);
 		if ( ! url ) {
 			onNotify( 'サイト URL が取得できませんでした。', 'error' );
 			return;

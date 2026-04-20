@@ -71,6 +71,8 @@ final class Mebuki_Portfolio_Manager {
 	public static function activate() {
 		self::load_dependencies();
 		Mebuki_PM_DB::migrate();
+		Mebuki_PM_Frontend::register_rewrite_rules();
+		flush_rewrite_rules();
 	}
 
 	/**

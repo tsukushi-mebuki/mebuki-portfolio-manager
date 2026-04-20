@@ -124,8 +124,12 @@ export function InquiryModal( { open, onClose, calc, estimate }: Props ) {
 		}
 
 		const root = window.mebukiPmSettings?.root;
+		const userSlug = ( window.mebukiPmSettings?.portfolioUserSlug ?? '' ).trim();
 		const uid = window.mebukiPmSettings?.portfolioUserId;
-		if ( ! root || uid === undefined || uid === null || uid <= 0 ) {
+		if (
+			! root ||
+			( userSlug === '' && ( uid === undefined || uid === null || uid <= 0 ) )
+		) {
 			setSubmitError(
 				'送信設定を読み込めませんでした。ページを再読み込みしてお試しください。'
 			);
@@ -139,6 +143,7 @@ export function InquiryModal( { open, onClose, calc, estimate }: Props ) {
 
 		setSubmitting( true );
 		const result = await postPublicOrder( root, {
+			user_slug: userSlug || undefined,
 			user_id: uid,
 			uuid,
 			client_name: clientName.trim(),
@@ -187,8 +192,12 @@ export function InquiryModal( { open, onClose, calc, estimate }: Props ) {
 		}
 
 		const root = window.mebukiPmSettings?.root;
+		const userSlug = ( window.mebukiPmSettings?.portfolioUserSlug ?? '' ).trim();
 		const uid = window.mebukiPmSettings?.portfolioUserId;
-		if ( ! root || uid === undefined || uid === null || uid <= 0 ) {
+		if (
+			! root ||
+			( userSlug === '' && ( uid === undefined || uid === null || uid <= 0 ) )
+		) {
 			setSubmitError(
 				'送信設定を読み込めませんでした。ページを再読み込みしてお試しください。'
 			);
@@ -202,6 +211,7 @@ export function InquiryModal( { open, onClose, calc, estimate }: Props ) {
 
 		setStripeSubmitting( true );
 		const result = await postOrderCheckout( root, {
+			user_slug: userSlug || undefined,
 			user_id: uid,
 			uuid,
 			client_name: clientName.trim(),

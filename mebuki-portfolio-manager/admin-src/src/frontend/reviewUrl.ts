@@ -4,9 +4,11 @@
 export function buildReviewWriteUrl(
 	siteUrl: string,
 	itemType: string,
-	itemId: string
+	itemId: string,
+	portfolioPath?: string
 ): string {
-	const base = siteUrl.trim();
+	const explicitPath = ( portfolioPath ?? '' ).trim();
+	const base = explicitPath !== '' ? explicitPath : siteUrl.trim();
 	if ( base === '' ) {
 		return '#';
 	}
