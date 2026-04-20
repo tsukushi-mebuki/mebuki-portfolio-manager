@@ -1,4 +1,4 @@
-import { StrictMode, CSSProperties } from 'react';
+import { StrictMode, CSSProperties, useLayoutEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
 	normalizeThemePreset,
@@ -38,6 +38,54 @@ function themeToCssVars( theme: ThemeTokens ): CSSProperties {
 }
 
 function FrontendShell() {
+	useLayoutEffect( () => {
+		let rafId = 0;
+
+		const adjustBleedWidth = () => {
+			const viewportWidth = document.documentElement.clientWidth;
+			const bleedElements = document.querySelectorAll< HTMLElement >(
+				'.mebuki-portfolio-bleed'
+			);
+			if ( ! bleedElements.length ) {
+				return;
+			}
+
+			bleedElements.forEach( ( element ) => {
+				const parent = element.parentElement;
+				if ( ! parent ) {
+					return;
+				}
+
+				// Reset once so parent position can be measured accurately.
+				element.style.marginLeft = '0px';
+				element.style.width = '100%';
+				element.style.maxWidth = '100%';
+
+				const parentRect = parent.getBoundingClientRect();
+				element.style.marginLeft = `-${ parentRect.left }px`;
+				element.style.width = `${ viewportWidth }px`;
+				element.style.maxWidth = `${ viewportWidth }px`;
+			} );
+		};
+
+		const scheduleAdjust = () => {
+			window.cancelAnimationFrame( rafId );
+			rafId = window.requestAnimationFrame( adjustBleedWidth );
+		};
+
+		scheduleAdjust();
+
+		const resizeObserver = new ResizeObserver( scheduleAdjust );
+		resizeObserver.observe( document.documentElement );
+		window.addEventListener( 'resize', scheduleAdjust, { passive: true } );
+
+		return () => {
+			window.cancelAnimationFrame( rafId );
+			resizeObserver.disconnect();
+			window.removeEventListener( 'resize', scheduleAdjust );
+		};
+	}, [] );
+
 	const raw = window.mebukiPmSettings?.settings;
 	const preset = normalizeThemePreset( raw?.theme_preset );
 	const theme = resolveThemeFromRaw( raw?.theme, preset );
