@@ -16,7 +16,12 @@ export function ReviewWriteButton( {
 	const disabled = itemId.trim() === '';
 	const href = disabled
 		? '#'
-		: buildReviewWriteUrl( siteUrl, itemType, itemId.trim() );
+		: buildReviewWriteUrl(
+				siteUrl,
+				itemType,
+				itemId.trim(),
+				window.mebukiPmSettings?.portfolioPath
+		  );
 
 	const baseClass = `inline-flex items-center justify-center rounded-[var(--mebuki-radius)] border border-[color-mix(in_srgb,var(--mebuki-accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--mebuki-accent)_12%,transparent)] px-3 py-1.5 text-xs font-medium text-[var(--mebuki-accent)] transition hover:bg-[color-mix(in_srgb,var(--mebuki-accent)_22%,transparent)] ${ className }`;
 

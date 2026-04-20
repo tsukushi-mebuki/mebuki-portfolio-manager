@@ -124,9 +124,15 @@ class Mebuki_PM_API {
 				'permission_callback' => '__return_true',
 				'args'                => array(
 					'user_id' => array(
-						'required'          => true,
+						'required'          => false,
 						'validate_callback' => static function ( $v ) {
-							return is_numeric( $v ) && (int) $v > 0;
+							return '' === (string) $v || ( is_numeric( $v ) && (int) $v > 0 );
+						},
+					),
+					'user_slug' => array(
+						'required'          => false,
+						'validate_callback' => static function ( $v ) {
+							return is_string( $v );
 						},
 					),
 				),
@@ -341,13 +347,13 @@ class Mebuki_PM_API {
 			$params = $request->get_params();
 		}
 
-		$user_id = isset( $params['user_id'] ) ? absint( $params['user_id'] ) : 0;
+		$user_id = self::resolve_public_owner_user_id( $params );
 		$uuid    = isset( $params['uuid'] ) ? sanitize_text_field( wp_unslash( (string) $params['uuid'] ) ) : '';
 
 		if ( 0 === $user_id ) {
 			return new WP_Error(
 				'mebuki_pm_user_id_required',
-				__( 'user_id is required.', 'mebuki-portfolio-manager' ),
+				__( 'valid user_slug or user_id is required.', 'mebuki-portfolio-manager' ),
 				array( 'status' => 400 )
 			);
 		}
@@ -369,6 +375,13 @@ class Mebuki_PM_API {
 		);
 
 		if ( ! empty( $existing ) ) {
+			if ( (int) $existing['user_id'] !== $user_id ) {
+				return new WP_Error(
+					'mebuki_pm_uuid_conflict',
+					__( 'This uuid is already associated with another portfolio.', 'mebuki-portfolio-manager' ),
+					array( 'status' => 409 )
+				);
+			}
 			return rest_ensure_response(
 				array(
 					'success'    => true,
@@ -485,6 +498,26 @@ class Mebuki_PM_API {
 			}
 		}
 		return '';
+	}
+
+	/**
+	 * Resolve portfolio owner from public identifier.
+	 *
+	 * @param array $params Request params.
+	 * @return int
+	 */
+	private static function resolve_public_owner_user_id( $params ) {
+		if ( isset( $params['user_slug'] ) && is_string( $params['user_slug'] ) ) {
+			$slug = sanitize_title( $params['user_slug'] );
+			if ( '' !== $slug ) {
+				$user = get_user_by( 'slug', $slug );
+				if ( $user instanceof WP_User ) {
+					return (int) $user->ID;
+				}
+				return 0;
+			}
+		}
+		return isset( $params['user_id'] ) ? absint( $params['user_id'] ) : 0;
 	}
 
 	/**
@@ -704,13 +737,13 @@ class Mebuki_PM_API {
 			$params = $request->get_params();
 		}
 
-		$user_id = isset( $params['user_id'] ) ? absint( $params['user_id'] ) : 0;
+		$user_id = self::resolve_public_owner_user_id( $params );
 		$uuid    = isset( $params['uuid'] ) ? sanitize_text_field( wp_unslash( (string) $params['uuid'] ) ) : '';
 
 		if ( 0 === $user_id ) {
 			return new WP_Error(
 				'mebuki_pm_user_id_required',
-				__( 'user_id is required.', 'mebuki-portfolio-manager' ),
+				__( 'valid user_slug or user_id is required.', 'mebuki-portfolio-manager' ),
 				array( 'status' => 400 )
 			);
 		}
@@ -897,6 +930,7 @@ class Mebuki_PM_API {
 					'cancel_url'  => $cancel_url,
 					'metadata'    => array(
 						'order_id' => (string) $order_id,
+						'owner_id' => (string) $user_id,
 					),
 				)
 			);
@@ -1058,7 +1092,7 @@ class Mebuki_PM_API {
 			$params = $request->get_params();
 		}
 
-		$user_id                = isset( $params['user_id'] ) ? absint( $params['user_id'] ) : 0;
+		$user_id                = self::resolve_public_owner_user_id( $params );
 		$item_type              = isset( $params['item_type'] ) ? sanitize_key( wp_unslash( (string) $params['item_type'] ) ) : '';
 		$item_id                = isset( $params['item_id'] ) ? sanitize_text_field( wp_unslash( (string) $params['item_id'] ) ) : '';
 		$reviewer_name          = isset( $params['reviewer_name'] ) ? sanitize_text_field( wp_unslash( (string) $params['reviewer_name'] ) ) : '';
@@ -1068,7 +1102,7 @@ class Mebuki_PM_API {
 		if ( 0 === $user_id || '' === $item_type || '' === $item_id || '' === $reviewer_name || '' === $review_text ) {
 			return new WP_Error(
 				'mebuki_pm_invalid_review_input',
-				__( 'user_id, item_type, item_id, reviewer_name, review_text are required.', 'mebuki-portfolio-manager' ),
+				__( 'valid user_slug or user_id, item_type, item_id, reviewer_name, review_text are required.', 'mebuki-portfolio-manager' ),
 				array( 'status' => 400 )
 			);
 		}
@@ -1153,11 +1187,12 @@ class Mebuki_PM_API {
 	public static function list_published_reviews_for_user( WP_REST_Request $request ) {
 		global $wpdb;
 
-		$user_id = absint( $request->get_param( 'user_id' ) );
+		$params = $request->get_params();
+		$user_id = self::resolve_public_owner_user_id( $params );
 		if ( 0 === $user_id ) {
 			return new WP_Error(
 				'mebuki_pm_invalid_user',
-				__( 'user_id is required.', 'mebuki-portfolio-manager' ),
+				__( 'valid user_slug or user_id is required.', 'mebuki-portfolio-manager' ),
 				array( 'status' => 400 )
 			);
 		}

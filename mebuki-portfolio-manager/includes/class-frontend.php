@@ -8,6 +8,9 @@ defined( 'ABSPATH' ) || exit;
 class Mebuki_PM_Frontend {
 
 	public const SHORTCODE = 'mebuki_portfolio';
+	public const QUERY_VAR_USER = 'mebuki_portfolio_user';
+	public const QUERY_VAR_MODE = 'mebuki_portfolio_mode';
+	public const BASE_PATH = 'portfolio';
 
 	public const SCRIPT_HANDLE = 'mebuki-pm-frontend';
 
@@ -20,26 +23,98 @@ class Mebuki_PM_Frontend {
 	 */
 	public static function init() {
 		add_shortcode( self::SHORTCODE, array( __CLASS__, 'render_shortcode' ) );
+		add_action( 'init', array( __CLASS__, 'register_rewrite_rules' ) );
+		add_filter( 'query_vars', array( __CLASS__, 'register_query_vars' ) );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'maybe_enqueue_assets' ) );
 	}
 
 	/**
-	 * Resolve the WordPress user ID whose saved settings power the public portfolio.
+	 * Register frontend rewrite rules.
 	 *
-	 * @return int
+	 * @return void
 	 */
-	private static function get_portfolio_owner_user_id() {
+	public static function register_rewrite_rules() {
+		add_rewrite_rule(
+			'^' . self::BASE_PATH . '/([^/]+)/reviews/?$',
+			'index.php?pagename=' . self::BASE_PATH . '&' . self::QUERY_VAR_USER . '=$matches[1]&' . self::QUERY_VAR_MODE . '=reviews',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . self::BASE_PATH . '/([^/]+)/?$',
+			'index.php?pagename=' . self::BASE_PATH . '&' . self::QUERY_VAR_USER . '=$matches[1]',
+			'top'
+		);
+	}
+
+	/**
+	 * Register custom query vars.
+	 *
+	 * @param array $vars Query vars.
+	 * @return array
+	 */
+	public static function register_query_vars( $vars ) {
+		$vars[] = self::QUERY_VAR_USER;
+		$vars[] = self::QUERY_VAR_MODE;
+		return $vars;
+	}
+
+	/**
+	 * Resolve owner context from query var.
+	 *
+	 * @return array{user_id:int,user_slug:string}|null
+	 */
+	private static function resolve_owner_context() {
+		$raw_slug = get_query_var( self::QUERY_VAR_USER );
+		$slug = sanitize_title( is_string( $raw_slug ) ? $raw_slug : '' );
+		if ( '' === $slug ) {
+			return null;
+		}
+		$user = get_user_by( 'slug', $slug );
+		if ( ! $user instanceof WP_User ) {
+			return null;
+		}
+		return array(
+			'user_id'   => (int) $user->ID,
+			'user_slug' => (string) $user->user_nicename,
+		);
+	}
+
+	/**
+	 * Legacy fallback owner (single-portfolio sites).
+	 *
+	 * @return array{user_id:int,user_slug:string}
+	 */
+	private static function resolve_legacy_owner_context() {
 		$admins = get_users(
 			array(
 				'role'   => 'administrator',
 				'number' => 1,
-				'fields' => array( 'ID' ),
+				'fields' => array( 'ID', 'user_nicename' ),
 			)
 		);
 		if ( ! empty( $admins ) && isset( $admins[0]->ID ) ) {
-			return (int) $admins[0]->ID;
+			return array(
+				'user_id'   => (int) $admins[0]->ID,
+				'user_slug' => isset( $admins[0]->user_nicename ) ? sanitize_title( (string) $admins[0]->user_nicename ) : '',
+			);
 		}
-		return 1;
+		return array(
+			'user_id'   => 1,
+			'user_slug' => '',
+		);
+	}
+
+	/**
+	 * Resolve owner for public rendering.
+	 *
+	 * @return array{user_id:int,user_slug:string}
+	 */
+	private static function get_portfolio_owner_context() {
+		$from_query = self::resolve_owner_context();
+		if ( null !== $from_query ) {
+			return $from_query;
+		}
+		return self::resolve_legacy_owner_context();
 	}
 
 	/**
@@ -47,8 +122,7 @@ class Mebuki_PM_Frontend {
 	 *
 	 * @return array<string, mixed>
 	 */
-	private static function get_settings_for_localize() {
-		$user_id  = self::get_portfolio_owner_user_id();
+	private static function get_settings_for_localize( $user_id ) {
 		$option   = get_option( 'mebuki_pm_settings_' . $user_id, array() );
 		if ( ! is_array( $option ) ) {
 			return array();
@@ -127,7 +201,12 @@ class Mebuki_PM_Frontend {
 			true
 		);
 
-		$owner_id = self::get_portfolio_owner_user_id();
+		$owner_ctx = self::get_portfolio_owner_context();
+		$owner_id  = $owner_ctx['user_id'];
+		$owner_slug = $owner_ctx['user_slug'];
+		$portfolio_path = '' !== $owner_slug
+			? home_url( '/' . self::BASE_PATH . '/' . $owner_slug . '/' )
+			: home_url( '/' );
 
 		wp_localize_script(
 			self::SCRIPT_HANDLE,
@@ -135,8 +214,10 @@ class Mebuki_PM_Frontend {
 			array(
 				'root'              => esc_url_raw( rest_url() ),
 				'nonce'             => wp_create_nonce( 'wp_rest' ),
-				'settings'          => self::get_settings_for_localize(),
+				'settings'          => self::get_settings_for_localize( $owner_id ),
 				'portfolioUserId'   => $owner_id,
+				'portfolioUserSlug' => $owner_slug,
+				'portfolioPath'     => esc_url_raw( $portfolio_path ),
 				'siteName'          => wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ),
 				'siteUrl'           => esc_url_raw( home_url( '/' ) ),
 			)

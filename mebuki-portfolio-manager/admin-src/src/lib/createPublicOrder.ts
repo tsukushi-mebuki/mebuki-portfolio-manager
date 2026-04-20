@@ -1,10 +1,11 @@
 import { joinRestPath } from '../frontend/restUrl';
 
 /**
- * Body for POST /mebuki-pm/v1/orders (public; includes portfolio owner user_id).
+ * Body for POST /mebuki-pm/v1/orders (public; resolves owner by slug).
  */
 export type CreatePublicOrderBody = {
-	user_id: number;
+	user_slug?: string;
+	user_id?: number;
 	uuid: string;
 	client_name: string;
 	client_email: string;

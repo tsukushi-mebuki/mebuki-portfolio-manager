@@ -13,6 +13,8 @@ type MebukiPmWindowConfig = {
 	nonce?: string;
 	settings?: Record<string, unknown>;
 	portfolioUserId?: number;
+	portfolioUserSlug?: string;
+	portfolioPath?: string;
 	siteName?: string;
 	siteUrl?: string;
 };
