@@ -166,10 +166,24 @@ export function InquiryModal( { open, onClose, calc, estimate }: Props ) {
 	}
 
 	const stripeMinMet = calc.totalYen >= 50;
+	const rawSettings = window.mebukiPmSettings?.settings;
+	const stripePublicKey =
+		typeof rawSettings?.stripe_public_key === 'string'
+			? rawSettings.stripe_public_key.trim()
+			: '';
+	const stripeSecretKey =
+		typeof rawSettings?.stripe_secret_key === 'string'
+			? rawSettings.stripe_secret_key.trim()
+			: '';
+	const stripeCheckoutEnabled = stripePublicKey !== '' && stripeSecretKey !== '';
 
 	async function handleStripeCheckout() {
 		setTouched( true );
 		setSubmitError( null );
+
+		if ( ! stripeCheckoutEnabled ) {
+			return;
+		}
 
 		if (
 			clientName.trim() === '' ||
@@ -440,19 +454,21 @@ export function InquiryModal( { open, onClose, calc, estimate }: Props ) {
 								>
 									{ submitting ? '送信中…' : '送信する' }
 								</button>
-								<button
-									type="button"
-									className="rounded-[var(--mebuki-radius)] bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md ring-2 ring-emerald-500/30 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
-									disabled={ actionBusy || ! stripeMinMet }
-									title={
-										! stripeMinMet
-											? '合計 50 円以上でご利用いただけます'
-											: undefined
-									}
-									onClick={ handleStripeCheckout }
-								>
-									{ stripeSubmitting ? '決済へ移動中…' : 'Stripeで決済する' }
-								</button>
+								{ stripeCheckoutEnabled ? (
+									<button
+										type="button"
+										className="rounded-[var(--mebuki-radius)] bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md ring-2 ring-emerald-500/30 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+										disabled={ actionBusy || ! stripeMinMet }
+										title={
+											! stripeMinMet
+												? '合計 50 円以上でご利用いただけます'
+												: undefined
+										}
+										onClick={ handleStripeCheckout }
+									>
+										{ stripeSubmitting ? '決済へ移動中…' : 'Stripeで決済する' }
+									</button>
+								) : null }
 							</div>
 						</form>
 					) }

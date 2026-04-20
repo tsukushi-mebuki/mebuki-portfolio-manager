@@ -17,50 +17,33 @@ jobs:
   phpunit:
     runs-on: ubuntu-latest
 
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root_password
-          MYSQL_DATABASE: wordpress_test
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot_password"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
-
-    defaults:
-      run:
-        working-directory: ./mebuki-portfolio-manager
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: "8.4"
-          tools: composer:v2, phpunit
-          coverage: none
+      - name: Start Docker stack
+        run: docker compose up -d db wordpress
 
-      - name: Install Composer dependencies
-        run: composer install --no-interaction --prefer-dist
+      - name: Install Composer dependencies (in Docker)
+        run: docker compose run --rm composer "composer install --no-interaction --prefer-dist"
 
-      - name: Validate MySQL connection
+      - name: Ensure wordpress_test database exists
+        run: docker compose exec -T db mysql -uroot -proot_password -e "CREATE DATABASE IF NOT EXISTS wordpress_test;"
+
+      - name: Install WordPress test library (in Docker)
         run: |
-          mysql --host=127.0.0.1 --port=3306 --user=root --password=root_password -e "SHOW DATABASES;"
+          docker compose run --rm composer "curl -sSLo /tmp/install-wp-tests.sh https://raw.githubusercontent.com/wp-cli/scaffold-command/master/templates/install-wp-tests.sh && chmod +x /tmp/install-wp-tests.sh && /tmp/install-wp-tests.sh wordpress_test root root_password db latest true"
 
-      - name: Install WordPress test library
-        run: |
-          curl -sSLo /tmp/install-wp-tests.sh https://raw.githubusercontent.com/wp-cli/scaffold-command/master/templates/install-wp-tests.sh
-          chmod +x /tmp/install-wp-tests.sh
-          /tmp/install-wp-tests.sh wordpress_test root root_password 127.0.0.1 latest true
+      - name: Run PHPUnit in WordPress container
+        run: docker compose exec -T wordpress sh -lc "cd /var/www/html/wp-content/plugins/mebuki-portfolio-manager && WP_TESTS_DIR=/tmp/wordpress-tests-lib WP_TESTS_DB_HOST=db WP_TESTS_DB_NAME=wordpress_test WP_TESTS_DB_USER=root WP_TESTS_DB_PASSWORD=root_password vendor/bin/phpunit -c phpunit.xml.dist"
 
-      - name: Run PHPUnit
-        run: composer test
+      - name: Show container logs on failure
+        if: failure()
+        run: docker compose logs --no-color wordpress db
+
+      - name: Stop Docker stack
+        if: always()
+        run: docker compose down -v
 
   e2e-smoke:
     runs-on: ubuntu-latest
