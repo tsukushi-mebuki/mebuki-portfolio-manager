@@ -1,5 +1,6 @@
 import type {
 	AboutItem,
+	GalleryCategory,
 	GalleryReviewItem,
 	LinkCardItem,
 	MebukiFormState,
@@ -131,15 +132,76 @@ function pickGalleryLineItems( raw: unknown ): GalleryReviewItem[] {
 				title?: unknown;
 				url?: unknown;
 				item_id?: unknown;
+				category_id?: unknown;
+				hide_from_all?: unknown;
 			};
 			return {
 				title: typeof o.title === 'string' ? o.title : '',
 				url: typeof o.url === 'string' ? o.url : '',
 				item_id: typeof o.item_id === 'string' ? o.item_id : '',
+				category_id: typeof o.category_id === 'string' ? o.category_id : '',
+				hide_from_all: Boolean( o.hide_from_all ),
 			};
 		}
-		return { title: '', url: '', item_id: '' };
+		return {
+			title: '',
+			url: '',
+			item_id: '',
+			category_id: '',
+			hide_from_all: false,
+		};
 	} );
+}
+
+function pickGalleryCategories( raw: unknown ): GalleryCategory[] {
+	if ( ! raw || typeof raw !== 'object' ) {
+		return [];
+	}
+	const categories = ( raw as { categories?: unknown } ).categories;
+	if ( ! Array.isArray( categories ) ) {
+		return [];
+	}
+	return categories
+		.map( ( row ) => {
+			if ( ! row || typeof row !== 'object' ) {
+				return null;
+			}
+			const o = row as { id?: unknown; title?: unknown };
+			const id = typeof o.id === 'string' ? o.id.trim() : '';
+			const title = typeof o.title === 'string' ? o.title : '';
+			if ( id === '' ) {
+				return null;
+			}
+			return { id, title };
+		} )
+		.filter( ( row ): row is GalleryCategory => row !== null )
+		.slice( 0, 4 );
+}
+
+function pickGalleryDisplayMode( raw: unknown ): 'tab' | 'category_sections' {
+	if ( ! raw || typeof raw !== 'object' ) {
+		return 'tab';
+	}
+	const mode = ( raw as { display_mode?: unknown } ).display_mode;
+	return mode === 'category_sections' ? 'category_sections' : 'tab';
+}
+
+function pickGalleryItemsPerPage( raw: unknown ): number {
+	if ( ! raw || typeof raw !== 'object' ) {
+		return 10;
+	}
+	const n = Number( ( raw as { items_per_page?: unknown } ).items_per_page );
+	if ( ! Number.isFinite( n ) ) {
+		return 10;
+	}
+	const rounded = Math.trunc( n );
+	if ( rounded < 1 ) {
+		return 1;
+	}
+	if ( rounded > 50 ) {
+		return 50;
+	}
+	return rounded;
 }
 
 function pickLinkCardItems( raw: unknown ): LinkCardItem[] {
@@ -335,8 +397,16 @@ export function toFormState( raw: Record<string, unknown> | undefined ): MebukiF
 		theme,
 		about: { items: pickAboutItems( r.about ) },
 		credo: pickCredo( r.credo ),
-		youtube_gallery: { items: pickGalleryLineItems( r.youtube_gallery ) },
+		youtube_gallery: {
+			display_mode: pickGalleryDisplayMode( r.youtube_gallery ),
+			items_per_page: pickGalleryItemsPerPage( r.youtube_gallery ),
+			categories: pickGalleryCategories( r.youtube_gallery ),
+			items: pickGalleryLineItems( r.youtube_gallery ),
+		},
 		illustration_gallery: {
+			display_mode: pickGalleryDisplayMode( r.illustration_gallery ),
+			items_per_page: pickGalleryItemsPerPage( r.illustration_gallery ),
+			categories: pickGalleryCategories( r.illustration_gallery ),
 			items: pickGalleryLineItems( r.illustration_gallery ),
 		},
 		link_cards: { items: pickLinkCardItems( r.link_cards ) },
@@ -382,19 +452,39 @@ export function buildPayloadForApi( form: MebukiFormState ): Record<string, unkn
 		},
 		credo: form.credo,
 		youtube_gallery: {
+			display_mode: form.youtube_gallery.display_mode,
+			items_per_page: form.youtube_gallery.items_per_page,
+			categories: form.youtube_gallery.categories
+				.slice( 0, 4 )
+				.map( ( row ) => ( {
+					id: row.id,
+					title: row.title,
+				} ) ),
 			items: form.youtube_gallery.items.map( ( row ) => ( {
 				title: row.title,
 				url: row.url,
 				item_id:
 					row.item_id.trim() !== '' ? row.item_id : newLocalId(),
+				category_id: row.category_id,
+				hide_from_all: row.hide_from_all,
 			} ) ),
 		},
 		illustration_gallery: {
+			display_mode: form.illustration_gallery.display_mode,
+			items_per_page: form.illustration_gallery.items_per_page,
+			categories: form.illustration_gallery.categories
+				.slice( 0, 4 )
+				.map( ( row ) => ( {
+					id: row.id,
+					title: row.title,
+				} ) ),
 			items: form.illustration_gallery.items.map( ( row ) => ( {
 				title: row.title,
 				url: row.url,
 				item_id:
 					row.item_id.trim() !== '' ? row.item_id : newLocalId(),
+				category_id: row.category_id,
+				hide_from_all: row.hide_from_all,
 			} ) ),
 		},
 		link_cards: {

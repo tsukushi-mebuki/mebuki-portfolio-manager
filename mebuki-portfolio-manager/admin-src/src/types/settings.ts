@@ -21,6 +21,24 @@ export interface GalleryReviewItem {
 	url: string;
 	/** 空のときは未保存行。保存後に JSON へ永続化される。 */
 	item_id: string;
+	/** 空文字は未分類。 */
+	category_id: string;
+	/** true の場合、ALL タブでは非表示（カテゴリタブ内のみ表示）。 */
+	hide_from_all: boolean;
+}
+
+export interface GalleryCategory {
+	id: string;
+	title: string;
+}
+
+export type GalleryDisplayMode = 'tab' | 'category_sections';
+
+export interface GalleryConfig {
+	display_mode: GalleryDisplayMode;
+	items_per_page: number;
+	categories: GalleryCategory[];
+	items: GalleryReviewItem[];
 }
 
 /** Editor-only stable id for DnD keys (not persisted). */
@@ -68,8 +86,8 @@ export interface MebukiFormState {
 	theme: ThemeTokens;
 	about: { items: AboutItem[] };
 	credo: CredoConfig;
-	youtube_gallery: { items: GalleryReviewItem[] };
-	illustration_gallery: { items: GalleryReviewItem[] };
+	youtube_gallery: GalleryConfig;
+	illustration_gallery: GalleryConfig;
 	link_cards: { items: LinkCardItem[] };
 	pricing: { categories: PricingCategory[] };
 	faq: { items: { question: string; answer: string }[] };

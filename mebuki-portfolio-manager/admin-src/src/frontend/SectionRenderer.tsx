@@ -47,7 +47,10 @@ export function SectionRenderer( { sectionId, vm, siteUrl, publishedReviews }: P
 	if ( sectionId === 'youtube_gallery' ) {
 		return (
 			<YouTubeGallery
+				categories={ vm.youtube_gallery.categories }
 				items={ vm.youtube_gallery.items }
+				displayMode={ vm.youtube_gallery.display_mode }
+				itemsPerPage={ vm.youtube_gallery.items_per_page }
 				siteUrl={ siteUrl }
 				publishedReviews={ publishedReviews ?? [] }
 				showReviewsUnderItems={ vm.show_reviews_under_items }
@@ -58,7 +61,10 @@ export function SectionRenderer( { sectionId, vm, siteUrl, publishedReviews }: P
 	if ( sectionId === 'illustration_gallery' ) {
 		return (
 			<IllustrationGallery
+				categories={ vm.illustration_gallery.categories }
 				items={ vm.illustration_gallery.items }
+				displayMode={ vm.illustration_gallery.display_mode }
+				itemsPerPage={ vm.illustration_gallery.items_per_page }
 				siteUrl={ siteUrl }
 				publishedReviews={ publishedReviews ?? [] }
 				showReviewsUnderItems={ vm.show_reviews_under_items }
