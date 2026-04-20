@@ -4,9 +4,11 @@
 export function buildReviewCollectionUrl(
 	siteRoot: string,
 	itemType: string,
-	itemId: string
+	itemId: string,
+	portfolioPath?: string
 ): string {
-	const trimmed = siteRoot.trim();
+	const explicitPath = ( portfolioPath ?? '' ).trim();
+	const trimmed = explicitPath !== '' ? explicitPath : siteRoot.trim();
 	if ( trimmed === '' ) {
 		return '';
 	}

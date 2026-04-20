@@ -55,6 +55,7 @@ export function GalleryReviewItemsSection( {
 	const items = gallery.items;
 	const categories = gallery.categories;
 	const siteUrl = window.mebukiPmRest?.siteUrl;
+	const portfolioPath = window.mebukiPmRest?.portfolioPath;
 
 	const updateRow = (
 		index: number,
@@ -264,6 +265,7 @@ export function GalleryReviewItemsSection( {
 						<div className="flex flex-wrap items-center gap-2">
 							<ReviewUrlCopyButton
 								siteUrl={ siteUrl }
+								portfolioPath={ portfolioPath }
 								itemType={ cfg.itemType }
 								itemId={ row.item_id }
 								onNotify={ onNotify }

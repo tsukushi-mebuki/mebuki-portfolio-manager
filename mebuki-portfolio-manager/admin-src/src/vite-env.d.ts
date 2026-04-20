@@ -7,6 +7,8 @@ declare global {
 			nonce: string;
 			/** フロント公開サイトのルート（口コミ収集 URL 用） */
 			siteUrl?: string;
+			/** ログイン中ユーザーの公開ポートフォリオURL */
+			portfolioPath?: string;
 		};
 		/** WordPress メディアモーダル（`wp_enqueue_media` 後） */
 		wp?: {
