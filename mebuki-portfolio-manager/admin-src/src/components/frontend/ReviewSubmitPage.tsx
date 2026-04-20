@@ -66,7 +66,6 @@ function resolveTarget( vm: FrontendViewModel ): ReviewTarget | null {
 export function ReviewSubmitPage( { vm, siteUrl }: Props ) {
 	const root = window.mebukiPmSettings?.root;
 	const userSlug = ( window.mebukiPmSettings?.portfolioUserSlug ?? '' ).trim();
-	const uid = window.mebukiPmSettings?.portfolioUserId;
 	const target = useMemo( () => resolveTarget( vm ), [ vm ] );
 	const returnUrl = useMemo(
 		() => normalizeReturnUrl( vm.portfolio_site_url, siteUrl ),
@@ -89,8 +88,7 @@ export function ReviewSubmitPage( { vm, siteUrl }: Props ) {
 	const canSubmit =
 		!!target &&
 		!!root &&
-		( userSlug !== '' ||
-			( uid !== undefined && uid !== null && uid > 0 ) ) &&
+		userSlug !== '' &&
 		reviewerName.trim() !== '' &&
 		reviewText.trim() !== '';
 
@@ -102,7 +100,7 @@ export function ReviewSubmitPage( { vm, siteUrl }: Props ) {
 		if (
 			!target ||
 			!root ||
-			( userSlug === '' && ( uid === undefined || uid === null || uid <= 0 ) )
+			userSlug === ''
 		) {
 			setSubmitError( '投稿設定を読み込めませんでした。URL をご確認ください。' );
 			return;
@@ -114,8 +112,7 @@ export function ReviewSubmitPage( { vm, siteUrl }: Props ) {
 
 		setSubmitting( true );
 		const result = await postPublicReview( root, {
-			user_slug: userSlug || undefined,
-			user_id: uid,
+			user_slug: userSlug,
 			item_type: target.itemType,
 			item_id: target.itemId,
 			reviewer_name: reviewerName.trim(),

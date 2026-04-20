@@ -39,9 +39,10 @@ class Test_Frontend_Settings_Bridge extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_saved_option_is_used_as_frontend_settings_source() {
-		$owner_method = new ReflectionMethod( 'Mebuki_PM_Frontend', 'get_portfolio_owner_user_id' );
+		$owner_method = new ReflectionMethod( 'Mebuki_PM_Frontend', 'get_portfolio_owner_context' );
 		$owner_method->setAccessible( true );
-		$resolved_owner_id = (int) $owner_method->invoke( null );
+		$owner_context     = $owner_method->invoke( null );
+		$resolved_owner_id = isset( $owner_context['user_id'] ) ? (int) $owner_context['user_id'] : 0;
 
 		update_option(
 			'mebuki_pm_settings_' . $resolved_owner_id,
@@ -68,7 +69,7 @@ class Test_Frontend_Settings_Bridge extends WP_UnitTestCase {
 
 		$method = new ReflectionMethod( 'Mebuki_PM_Frontend', 'get_settings_for_localize' );
 		$method->setAccessible( true );
-		$settings = $method->invoke( null );
+		$settings = $method->invoke( null, $resolved_owner_id );
 
 		$this->assertIsArray( $settings );
 		$this->assertArrayHasKey( 'credo', $settings );
@@ -82,9 +83,10 @@ class Test_Frontend_Settings_Bridge extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_frontend_owner_resolution_uses_first_administrator() {
-		$method = new ReflectionMethod( 'Mebuki_PM_Frontend', 'get_portfolio_owner_user_id' );
+		$method = new ReflectionMethod( 'Mebuki_PM_Frontend', 'get_portfolio_owner_context' );
 		$method->setAccessible( true );
-		$owner_id = (int) $method->invoke( null );
+		$owner_context = $method->invoke( null );
+		$owner_id      = isset( $owner_context['user_id'] ) ? (int) $owner_context['user_id'] : 0;
 
 		$this->assertGreaterThan( 0, $owner_id );
 		$user = get_user_by( 'id', $owner_id );

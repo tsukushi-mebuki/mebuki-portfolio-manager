@@ -72,7 +72,7 @@ EN:
 * `PATCH /orders/{id}` (admin)
 * `POST /reviews` (public)
 * `GET /reviews/me` (admin)
-* `GET /reviews/published?user_id={id}` (public)
+* `GET /reviews/published?user_slug={slug}` (public)
 * `PATCH /reviews/{id}` (admin)
 * `POST /webhooks/stripe` (public)
 
@@ -85,7 +85,7 @@ JA:
 * `PATCH /orders/{id}`（管理者）
 * `POST /reviews`（公開）
 * `GET /reviews/me`（管理者）
-* `GET /reviews/published?user_id={id}`（公開）
+* `GET /reviews/published?user_slug={slug}`（公開）
 * `PATCH /reviews/{id}`（管理者）
 * `POST /webhooks/stripe`（公開）
 
@@ -95,11 +95,15 @@ EN:
 * Requires `stripe/stripe-php` (installed by Composer).
 * `orders/checkout` requires Stripe Secret Key in plugin settings.
 * Webhook endpoint verifies signature via configured webhook secret.
+* Public owner resolution uses `user_slug`; public `user_id` input is rejected.
+* Stripe webhook updates order state only when `metadata.owner_id` matches the order owner (`user_id`); missing/mismatch events are skipped.
 
 JA:
 * `stripe/stripe-php` が必要です（Composerで導入）。
 * `orders/checkout` には設定内の Stripe Secret Key が必要です。
 * Webhook は保存済みの Webhook Secret で署名検証します。
+* 公開APIのオーナー解決は `user_slug` 固定で、公開入力の `user_id` は受け付けません。
+* Stripe webhook は `metadata.owner_id` と注文オーナー（`user_id`）が一致する場合のみ状態更新し、欠落・不一致イベントはスキップします。
 
 == Development ==
 

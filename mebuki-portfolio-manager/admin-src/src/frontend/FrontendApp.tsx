@@ -4,7 +4,7 @@ import { HeroSection } from '../components/frontend/HeroSection';
 import { SectionRenderer } from './SectionRenderer';
 import { ReviewSubmitPage } from '../components/frontend/ReviewSubmitPage';
 import type { ReviewRow } from '../types/settings';
-import { publishedReviewsUrl, publishedReviewsUrlBySlug } from './restUrl';
+import { publishedReviewsUrlBySlug } from './restUrl';
 
 export function FrontendApp() {
 	const siteName = window.mebukiPmSettings?.siteName ?? '';
@@ -30,21 +30,14 @@ export function FrontendApp() {
 	useEffect( () => {
 		const root = window.mebukiPmSettings?.root;
 		const userSlug = ( window.mebukiPmSettings?.portfolioUserSlug ?? '' ).trim();
-		const uid = window.mebukiPmSettings?.portfolioUserId;
-		if (
-			! root ||
-			( userSlug === '' && ( uid === undefined || uid === null || uid <= 0 ) )
-		) {
+		if ( ! root || userSlug === '' ) {
 			setPublishedReviews( [] );
 			return;
 		}
 		let cancelled = false;
 		( async () => {
 			try {
-				const url =
-					userSlug !== ''
-						? publishedReviewsUrlBySlug( root, userSlug )
-						: publishedReviewsUrl( root, uid as number );
+				const url = publishedReviewsUrlBySlug( root, userSlug );
 				const res = await fetch( url, {
 					credentials: 'same-origin',
 					headers: { Accept: 'application/json' },
