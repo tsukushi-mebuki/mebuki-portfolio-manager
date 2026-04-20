@@ -171,6 +171,6 @@ class Mebuki_PM_Frontend {
 	 */
 	public static function render_shortcode( $atts ) {
 		unset( $atts );
-		return '<div id="mebuki-frontend-root"></div>';
+		return '<div class="mebuki-portfolio-bleed"><div id="mebuki-frontend-root"></div></div>';
 	}
 }

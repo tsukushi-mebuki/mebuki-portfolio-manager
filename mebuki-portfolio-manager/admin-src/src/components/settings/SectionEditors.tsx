@@ -175,6 +175,69 @@ export function CredoSectionEditor( { form, setForm }: Props ) {
 	);
 }
 
+export function HeroSectionEditor( { form, setForm }: Props ) {
+	return (
+		<div className="space-y-3">
+			<div>
+				<label className="mb-1 block text-xs text-slate-600">タイトル</label>
+				<input
+					type="text"
+					className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+					value={ form.hero.title }
+					onChange={ ( e ) =>
+						setForm( ( f ) => ( {
+							...f,
+							hero: { ...f.hero, title: e.target.value },
+						} ) )
+					}
+					placeholder="例: Mebuki Works Portfolio"
+				/>
+			</div>
+			<div>
+				<label className="mb-1 block text-xs text-slate-600">
+					サブタイトル
+				</label>
+				<input
+					type="text"
+					className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+					value={ form.hero.subtitle }
+					onChange={ ( e ) =>
+						setForm( ( f ) => ( {
+							...f,
+							hero: { ...f.hero, subtitle: e.target.value },
+						} ) )
+					}
+					placeholder="短い紹介文"
+				/>
+			</div>
+			<div>
+				<label className="mb-1 block text-xs text-slate-600">カバー画像</label>
+				<MediaPickerButton
+					value={ form.hero.cover_image_url }
+					onChange={ ( url ) =>
+						setForm( ( f ) => ( {
+							...f,
+							hero: { ...f.hero, cover_image_url: url },
+						} ) )
+					}
+				/>
+				<input
+					type="url"
+					className="mt-2 w-full rounded-md border border-slate-200 px-2 py-1.5 font-mono text-xs focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+					value={ form.hero.cover_image_url }
+					onChange={ ( e ) =>
+						setForm( ( f ) => ( {
+							...f,
+							hero: { ...f.hero, cover_image_url: e.target.value },
+						} ) )
+					}
+					placeholder="https://..."
+				/>
+			</div>
+		</div>
+	);
+}
+
 export { PricingSection } from './PricingCategoriesEditor';
 
 export function FaqSection( { form, setForm }: Props ) {

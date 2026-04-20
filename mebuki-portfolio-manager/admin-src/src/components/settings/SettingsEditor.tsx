@@ -28,6 +28,7 @@ import { SortableSectionCard } from './SortableSectionCard';
 import {
 	CredoSectionEditor,
 	FaqSection,
+	HeroSectionEditor,
 	LinkCardsSection,
 	PricingSection,
 } from './SectionEditors';
@@ -40,6 +41,8 @@ function renderSectionBody(
 	onNotify: ( message: string, variant: ToastVariant ) => void
 ) {
 	switch ( id ) {
+		case 'hero':
+			return <HeroSectionEditor form={ form } setForm={ setForm } />;
 		case 'about':
 			return <AboutRepeater form={ form } setForm={ setForm } />;
 		case 'youtube_gallery':

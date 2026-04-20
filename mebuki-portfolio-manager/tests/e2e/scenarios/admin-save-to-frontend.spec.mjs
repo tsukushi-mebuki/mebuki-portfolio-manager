@@ -335,7 +335,12 @@ async function waitForReviewSwitchInAdmin(page, reviewName, baseURL) {
 		const reviewRow = reviewsCard.locator('div').filter({
 			hasText: reviewName,
 		}).first();
-		const reviewSwitch = reviewRow.locator('button[role="switch"]');
+		// 口コミ行に複数 switch が描画される環境があるため、有効なものを優先して一意に絞る。
+		const enabledReviewSwitch = reviewRow.locator('button[role="switch"]:not([disabled])').first();
+		const reviewSwitch =
+			(await enabledReviewSwitch.count()) > 0
+				? enabledReviewSwitch
+				: reviewRow.locator('button[role="switch"]').first();
 		if ((await reviewSwitch.count()) > 0) {
 			await expect(reviewSwitch).toBeVisible({ timeout: 10_000 });
 			return reviewSwitch;

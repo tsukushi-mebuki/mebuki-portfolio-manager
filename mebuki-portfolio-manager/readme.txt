@@ -61,6 +61,18 @@ JA:
 4. 固定ページを作成し `[mebuki_portfolio]` を追加します。
 5. `WP Admin > Mebuki PM` から設定を行います。
 
+== Shortcode Usage ==
+
+EN:
+* To render the portfolio frontend, place `[mebuki_portfolio]` in page content.
+* No specific page slug is required in production.
+* E2E scripts expect a page with slug `portfolio-e2e` (test-only convention).
+
+JA:
+* ポートフォリオ表示は、固定ページ本文に `[mebuki_portfolio]` を記入すると出力されます。
+* 本番運用では固定ページのスラッグ指定は必須ではありません。
+* ただし E2E スクリプトでは `portfolio-e2e` スラッグを前提にしています（テスト用途のみ）。
+
 == Frequently Used REST Endpoints ==
 
 EN:

@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Break out of theme content max-width without editing theme files. */
+.mebuki-portfolio-bleed {
+	width: 100vw;
+	max-width: 100vw;
+	margin-left: calc(50% - 50vw);
+	margin-right: calc(50% - 50vw);
+}
+
 @layer components {
 	.mebuki-section-title {
 		position: relative;
