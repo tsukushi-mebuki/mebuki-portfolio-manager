@@ -29,6 +29,7 @@ const SECTION_REGISTRY: Record<
 	SectionId,
 	( ctx: SectionRenderContext ) => ReactNode
 > = {
+	hero: () => null,
 	about: ( { vm } ) => <AboutSection items={ vm.about.items } />,
 	credo: ( { vm } ) => <CredoSection credo={ vm.credo } />,
 	'youtube_gallery': () => null,

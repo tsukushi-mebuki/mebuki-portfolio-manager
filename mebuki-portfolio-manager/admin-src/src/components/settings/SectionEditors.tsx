@@ -8,6 +8,66 @@ type Props = {
 	setForm: Dispatch<SetStateAction<MebukiFormState>>;
 };
 
+export function HeroSectionEditor( { form, setForm }: Props ) {
+	return (
+		<div className="space-y-3">
+			<div>
+				<label className="mb-1 block text-xs text-slate-600">タイトル</label>
+				<input
+					type="text"
+					className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+					value={ form.hero.title }
+					onChange={ ( e ) =>
+						setForm( ( f ) => ( {
+							...f,
+							hero: { ...f.hero, title: e.target.value },
+						} ) )
+					}
+					placeholder="メインタイトル"
+				/>
+			</div>
+			<div>
+				<label className="mb-1 block text-xs text-slate-600">サブタイトル</label>
+				<textarea
+					className="min-h-[96px] w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm leading-relaxed focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+					value={ form.hero.subtitle }
+					onChange={ ( e ) =>
+						setForm( ( f ) => ( {
+							...f,
+							hero: { ...f.hero, subtitle: e.target.value },
+						} ) )
+					}
+					placeholder="サブタイトル（任意）"
+				/>
+			</div>
+			<div>
+				<label className="mb-1 block text-xs text-slate-600">カバー画像</label>
+				<MediaPickerButton
+					value={ form.hero.cover_image_url }
+					onChange={ ( url ) =>
+						setForm( ( f ) => ( {
+							...f,
+							hero: { ...f.hero, cover_image_url: url },
+						} ) )
+					}
+				/>
+				<input
+					type="url"
+					className="mt-2 w-full rounded-md border border-slate-200 px-2 py-1.5 font-mono text-xs focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+					value={ form.hero.cover_image_url }
+					onChange={ ( e ) =>
+						setForm( ( f ) => ( {
+							...f,
+							hero: { ...f.hero, cover_image_url: e.target.value },
+						} ) )
+					}
+					placeholder="cover_image_url（手入力可）"
+				/>
+			</div>
+		</div>
+	);
+}
+
 export function LinkCardsSection( { form, setForm }: Props ) {
 	const items = form.link_cards.items;
 

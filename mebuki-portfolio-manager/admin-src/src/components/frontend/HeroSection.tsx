@@ -1,8 +1,8 @@
-import type { HeroConfig } from '../../frontend/normalizeViewModel';
+import type { HeroConfig } from '../../types/settings';
 
 type Props = {
 	siteName: string;
-	hero: HeroConfig | null;
+	hero: HeroConfig;
 };
 
 export function HeroSection( { siteName, hero }: Props ) {

@@ -2,6 +2,7 @@ import type {
 	AboutItem,
 	GalleryCategory,
 	GalleryReviewItem,
+	HeroConfig,
 	LinkCardItem,
 	MebukiFormState,
 	PricingCategory,
@@ -17,6 +18,7 @@ import {
 import type { ThemePresetId } from './themePresets';
 
 export const ALL_SECTIONS: SectionId[] = [
+	'hero',
 	'about',
 	'credo',
 	'youtube_gallery',
@@ -28,6 +30,7 @@ export const ALL_SECTIONS: SectionId[] = [
 ];
 
 export const SECTION_LABELS: Record<SectionId, string> = {
+	hero: 'ヒーロー',
 	about: '自己紹介（About）',
 	credo: 'クレド',
 	youtube_gallery: 'YouTubeギャラリー',
@@ -115,6 +118,19 @@ function pickCredo( raw: unknown ): { title: string; body: string } {
 	return {
 		title: typeof c.title === 'string' ? c.title : '',
 		body: typeof c.body === 'string' ? c.body : '',
+	};
+}
+
+function pickHero( raw: unknown ): HeroConfig {
+	if ( ! raw || typeof raw !== 'object' ) {
+		return { title: '', subtitle: '', cover_image_url: '' };
+	}
+	const h = raw as Record<string, unknown>;
+	return {
+		title: typeof h.title === 'string' ? h.title : '',
+		subtitle: typeof h.subtitle === 'string' ? h.subtitle : '',
+		cover_image_url:
+			typeof h.cover_image_url === 'string' ? h.cover_image_url : '',
 	};
 }
 
@@ -395,6 +411,7 @@ export function toFormState( raw: Record<string, unknown> | undefined ): MebukiF
 		layout_order: normalizeLayoutOrder( r.layout_order ),
 		theme_preset,
 		theme,
+		hero: pickHero( r.hero ),
 		about: { items: pickAboutItems( r.about ) },
 		credo: pickCredo( r.credo ),
 		youtube_gallery: {
@@ -444,6 +461,11 @@ export function buildPayloadForApi( form: MebukiFormState ): Record<string, unkn
 		layout_order: form.layout_order,
 		theme_preset: preset,
 		theme,
+		hero: {
+			title: form.hero.title,
+			subtitle: form.hero.subtitle,
+			cover_image_url: form.hero.cover_image_url,
+		},
 		about: {
 			items: form.about.items.map( ( row ) => ( {
 				title: row.title,

@@ -67,15 +67,18 @@ export function FrontendApp() {
 
 	return (
 		<div className="min-h-screen bg-[var(--mebuki-bg)] pb-20 text-[var(--mebuki-text)] antialiased">
-			<HeroSection siteName={ siteName } hero={ vm.hero } />
 			{ vm.layout_order.map( ( id ) => (
-				<SectionRenderer
-					key={ id }
-					sectionId={ id }
-					vm={ vm }
-					siteUrl={ siteUrl }
-					publishedReviews={ publishedReviews }
-				/>
+				id === 'hero' ? (
+					<HeroSection key={ id } siteName={ siteName } hero={ vm.hero } />
+				) : (
+					<SectionRenderer
+						key={ id }
+						sectionId={ id }
+						vm={ vm }
+						siteUrl={ siteUrl }
+						publishedReviews={ publishedReviews }
+					/>
+				)
 			) ) }
 		</div>
 	);
