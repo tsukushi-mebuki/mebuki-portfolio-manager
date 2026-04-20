@@ -44,10 +44,12 @@ Local development environment and plugin source for **Mebuki Portfolio Manager**
 - Plugin code is mounted into the WordPress container from `./mebuki-portfolio-manager`.
 - If plugin updates are not reflected, restart WordPress container:
   - `docker compose restart wordpress`
+- Public REST endpoints for portfolio actions are slug-based (`user_slug`) and no longer accept `user_id` as public owner input.
 
 - プラグインコードは `./mebuki-portfolio-manager` から WordPress コンテナへマウントされます。
 - 変更が反映されない場合は WordPress コンテナを再起動してください:
   - `docker compose restart wordpress`
+- 公開REST APIのオーナー解決は `user_slug` 固定で、公開入力としての `user_id` は受け付けません。
 
 ## Testing / テスト
 

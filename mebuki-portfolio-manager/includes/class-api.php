@@ -123,14 +123,8 @@ class Mebuki_PM_API {
 				'callback'            => array( __CLASS__, 'list_published_reviews_for_user' ),
 				'permission_callback' => '__return_true',
 				'args'                => array(
-					'user_id' => array(
-						'required'          => false,
-						'validate_callback' => static function ( $v ) {
-							return '' === (string) $v || ( is_numeric( $v ) && (int) $v > 0 );
-						},
-					),
 					'user_slug' => array(
-						'required'          => false,
+						'required'          => true,
 						'validate_callback' => static function ( $v ) {
 							return is_string( $v );
 						},
@@ -353,7 +347,7 @@ class Mebuki_PM_API {
 		if ( 0 === $user_id ) {
 			return new WP_Error(
 				'mebuki_pm_user_id_required',
-				__( 'valid user_slug or user_id is required.', 'mebuki-portfolio-manager' ),
+				__( 'valid user_slug is required.', 'mebuki-portfolio-manager' ),
 				array( 'status' => 400 )
 			);
 		}
@@ -588,7 +582,8 @@ class Mebuki_PM_API {
 				return 0;
 			}
 		}
-		return isset( $params['user_id'] ) ? absint( $params['user_id'] ) : 0;
+
+		return 0;
 	}
 
 	/**
@@ -628,6 +623,41 @@ class Mebuki_PM_API {
 	}
 
 	/**
+	 * Read owner_id candidate from raw webhook payload.
+	 *
+	 * @param string $payload Raw request body.
+	 * @return int
+	 */
+	private static function extract_owner_id_from_webhook_payload( $payload ) {
+		$data = json_decode( $payload, true );
+		if ( ! is_array( $data ) ) {
+			return 0;
+		}
+		$owner_id = $data['data']['object']['metadata']['owner_id'] ?? null;
+		if ( null === $owner_id ) {
+			return 0;
+		}
+		return absint( $owner_id );
+	}
+
+	/**
+	 * Read metadata field from Stripe checkout session object.
+	 *
+	 * @param mixed  $metadata Stripe metadata object/array.
+	 * @param string $key Metadata key.
+	 * @return string
+	 */
+	private static function read_stripe_metadata_value( $metadata, $key ) {
+		if ( is_object( $metadata ) && isset( $metadata->{$key} ) ) {
+			return (string) $metadata->{$key};
+		}
+		if ( is_array( $metadata ) && isset( $metadata[ $key ] ) ) {
+			return (string) $metadata[ $key ];
+		}
+		return '';
+	}
+
+	/**
 	 * POST /webhooks/stripe — verify signature and update order on checkout.session.completed.
 	 *
 	 * @param WP_REST_Request $request Request instance.
@@ -659,7 +689,9 @@ class Mebuki_PM_API {
 			);
 		}
 
-		$webhook_secret = self::get_stripe_webhook_secret_for_user( self::get_portfolio_owner_user_id() );
+		$payload_owner_id = self::extract_owner_id_from_webhook_payload( $payload );
+		$secret_owner_id  = $payload_owner_id > 0 ? $payload_owner_id : self::get_portfolio_owner_user_id();
+		$webhook_secret   = self::get_stripe_webhook_secret_for_user( $secret_owner_id );
 		if ( '' === $webhook_secret ) {
 			return new WP_REST_Response(
 				array( 'message' => 'Webhook secret not configured' ),
@@ -691,16 +723,15 @@ class Mebuki_PM_API {
 
 		$session = $event->data->object;
 		$meta    = isset( $session->metadata ) ? $session->metadata : null;
-		$oid_raw = '';
-		if ( is_object( $meta ) && isset( $meta->order_id ) ) {
-			$oid_raw = (string) $meta->order_id;
-		} elseif ( is_array( $meta ) && isset( $meta['order_id'] ) ) {
-			$oid_raw = (string) $meta['order_id'];
-		}
+		$oid_raw = self::read_stripe_metadata_value( $meta, 'order_id' );
+		$event_owner_id = absint( self::read_stripe_metadata_value( $meta, 'owner_id' ) );
 
 		$order_id = absint( $oid_raw );
 		if ( $order_id <= 0 ) {
 			return new WP_REST_Response( array( 'received' => true, 'skipped' => 'no_order_id' ), 200 );
+		}
+		if ( $event_owner_id <= 0 ) {
+			return new WP_REST_Response( array( 'received' => true, 'skipped' => 'missing_owner_id' ), 200 );
 		}
 
 		$table_name = $wpdb->prefix . 'mebuki_pm_orders';
@@ -716,9 +747,9 @@ class Mebuki_PM_API {
 			return new WP_REST_Response( array( 'received' => true, 'skipped' => 'order_not_found' ), 200 );
 		}
 
-		$owner_id = self::get_portfolio_owner_user_id();
-		if ( (int) $row['user_id'] !== $owner_id ) {
-			return new WP_REST_Response( array( 'received' => true, 'skipped' => 'wrong_owner' ), 200 );
+		$row_owner_id = isset( $row['user_id'] ) ? (int) $row['user_id'] : 0;
+		if ( $row_owner_id !== $event_owner_id ) {
+			return new WP_REST_Response( array( 'received' => true, 'skipped' => 'owner_mismatch' ), 200 );
 		}
 
 		$details = json_decode( $row['order_details_json'], true );
@@ -814,7 +845,7 @@ class Mebuki_PM_API {
 		if ( 0 === $user_id ) {
 			return new WP_Error(
 				'mebuki_pm_user_id_required',
-				__( 'valid user_slug or user_id is required.', 'mebuki-portfolio-manager' ),
+				__( 'valid user_slug is required.', 'mebuki-portfolio-manager' ),
 				array( 'status' => 400 )
 			);
 		}
@@ -1173,7 +1204,7 @@ class Mebuki_PM_API {
 		if ( 0 === $user_id || '' === $item_type || '' === $item_id || '' === $reviewer_name || '' === $review_text ) {
 			return new WP_Error(
 				'mebuki_pm_invalid_review_input',
-				__( 'valid user_slug or user_id, item_type, item_id, reviewer_name, review_text are required.', 'mebuki-portfolio-manager' ),
+				__( 'valid user_slug, item_type, item_id, reviewer_name, review_text are required.', 'mebuki-portfolio-manager' ),
 				array( 'status' => 400 )
 			);
 		}
@@ -1263,7 +1294,7 @@ class Mebuki_PM_API {
 		if ( 0 === $user_id ) {
 			return new WP_Error(
 				'mebuki_pm_invalid_user',
-				__( 'valid user_slug or user_id is required.', 'mebuki-portfolio-manager' ),
+				__( 'valid user_slug is required.', 'mebuki-portfolio-manager' ),
 				array( 'status' => 400 )
 			);
 		}

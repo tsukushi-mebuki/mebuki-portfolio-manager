@@ -1,8 +1,7 @@
 import { joinRestPath } from '../frontend/restUrl';
 
 export type CreatePublicReviewBody = {
-	user_slug?: string;
-	user_id?: number;
+	user_slug: string;
 	item_type: string;
 	item_id: string;
 	reviewer_name: string;
