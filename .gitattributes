@@ -1,0 +1,4 @@
+# CI (Linux) で bash スクリプトが CRLF だと失敗するのを防ぐ。
+# `text eol=lf` でチェックアウト時に LF に揃える（コミット済み CRLF は git add --renormalize で修正）。
+*.sh text eol=lf
+scripts/e2e-bootstrap-wordpress.sh text eol=lf

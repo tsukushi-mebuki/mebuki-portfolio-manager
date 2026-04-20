@@ -1,6 +1,7 @@
 import type { ThemePresetId, ThemeTokens } from '../lib/themePresets';
 
 export type SectionId =
+	| 'hero'
 	| 'about'
 	| 'credo'
 	| 'youtube_gallery'
@@ -13,6 +14,12 @@ export type SectionId =
 export interface CredoConfig {
 	title: string;
 	body: string;
+}
+
+export interface HeroConfig {
+	title: string;
+	subtitle: string;
+	cover_image_url: string;
 }
 
 /** YouTube / イラストギャラリー共通の1行（口コミ用 item_id） */
@@ -66,6 +73,7 @@ export interface MebukiFormState {
 	layout_order: SectionId[];
 	theme_preset: ThemePresetId;
 	theme: ThemeTokens;
+	hero: HeroConfig;
 	about: { items: AboutItem[] };
 	credo: CredoConfig;
 	youtube_gallery: { items: GalleryReviewItem[] };

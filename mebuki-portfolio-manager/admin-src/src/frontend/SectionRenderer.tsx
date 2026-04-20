@@ -9,16 +9,19 @@ import { PricingSection } from '../components/frontend/PricingSection';
 import { FAQSection } from '../components/frontend/FAQSection';
 import { ReviewSection } from '../components/frontend/ReviewSection';
 import { CredoSection } from '../components/frontend/CredoSection';
+import { HeroSection } from '../components/frontend/HeroSection';
 
 type Props = {
 	sectionId: SectionId;
 	vm: FrontendViewModel;
+	siteName: string;
 	siteUrl: string;
 	publishedReviews: ReviewRow[] | null;
 };
 
 type SectionRenderContext = {
 	vm: FrontendViewModel;
+	siteName: string;
 	siteUrl: string;
 };
 
@@ -29,6 +32,7 @@ const SECTION_REGISTRY: Record<
 	SectionId,
 	( ctx: SectionRenderContext ) => ReactNode
 > = {
+	hero: ( { vm, siteName } ) => <HeroSection siteName={ siteName } hero={ vm.hero } />,
 	about: ( { vm } ) => <AboutSection items={ vm.about.items } />,
 	credo: ( { vm } ) => <CredoSection credo={ vm.credo } />,
 	'youtube_gallery': () => null,
@@ -39,7 +43,7 @@ const SECTION_REGISTRY: Record<
 	reviews: () => null,
 };
 
-export function SectionRenderer( { sectionId, vm, siteUrl, publishedReviews }: Props ) {
+export function SectionRenderer( { sectionId, vm, siteName, siteUrl, publishedReviews }: Props ) {
 	const render = SECTION_REGISTRY[ sectionId ];
 	if ( ! render ) {
 		return null;
@@ -74,5 +78,5 @@ export function SectionRenderer( { sectionId, vm, siteUrl, publishedReviews }: P
 			/>
 		);
 	}
-	return render( { vm, siteUrl } );
+	return render( { vm, siteName, siteUrl } );
 }

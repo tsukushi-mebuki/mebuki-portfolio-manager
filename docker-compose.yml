@@ -11,10 +11,18 @@ services:
     volumes:
       - db_data:/var/lib/mysql
       - ./docker/mysql/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot_password"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
 
   wordpress:
     image: wordpress:latest
     container_name: mebuki-wordpress
+    # DB の healthcheck 完了を待つと、初回ボリューム作成が遅い CI で wordpress が永遠に起動しないことがある。
+    # 公式イメージの entrypoint が DB 接続をリトライするので、単純な依存のみにする。
     depends_on:
       - db
     restart: unless-stopped
@@ -27,6 +35,8 @@ services:
       WORDPRESS_DB_NAME: wordpress
     volumes:
       - ./mebuki-portfolio-manager:/var/www/html/wp-content/plugins/mebuki-portfolio-manager
+      # CLI / mod_php で DB 設定差分が出ないよう、E2E 用 wp-config を固定で使う。
+      - ./docker/wordpress/wp-config-ci.php:/var/www/html/wp-config.php:ro
 
   composer:
     image: composer:2

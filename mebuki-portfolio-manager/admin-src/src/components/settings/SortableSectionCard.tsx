@@ -29,6 +29,7 @@ export function SortableSectionCard( { id, title, children }: Props ) {
 		<div
 			ref={ setNodeRef }
 			style={ style }
+			data-section-id={ id }
 			className="mb-4 rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-900/5"
 		>
 			<div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">

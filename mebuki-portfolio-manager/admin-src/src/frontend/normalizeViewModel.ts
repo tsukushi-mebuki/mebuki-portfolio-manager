@@ -8,25 +8,22 @@ export type HeroConfig = {
 };
 
 export interface FrontendViewModel extends MebukiFormState {
-	hero: HeroConfig | null;
+	hero: HeroConfig;
 }
 
-function pickHero( raw: Record<string, unknown> | undefined ): HeroConfig | null {
+function pickHero( raw: Record<string, unknown> | undefined ): HeroConfig {
 	if ( ! raw ) {
-		return null;
+		return { title: '', subtitle: '', cover_image_url: '' };
 	}
 	const h = raw.hero;
 	if ( ! h || typeof h !== 'object' ) {
-		return null;
+		return { title: '', subtitle: '', cover_image_url: '' };
 	}
 	const o = h as Record<string, unknown>;
 	const title = typeof o.title === 'string' ? o.title.trim() : '';
 	const subtitle = typeof o.subtitle === 'string' ? o.subtitle.trim() : '';
 	const cover_image_url =
 		typeof o.cover_image_url === 'string' ? o.cover_image_url.trim() : '';
-	if ( ! title && ! subtitle && ! cover_image_url ) {
-		return null;
-	}
 	return { title, subtitle, cover_image_url };
 }
 

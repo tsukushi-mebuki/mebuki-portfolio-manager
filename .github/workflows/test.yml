@@ -7,6 +7,7 @@ on:
       - develop
       - "feature/**"
       - "chore/**"
+      - "test/**"
   pull_request:
   workflow_dispatch:
 
@@ -37,7 +38,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -48,6 +49,11 @@ jobs:
 
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist
+
+      - name: Install mysql-client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mysql-client
 
       - name: Validate MySQL connection
         run: |
@@ -70,12 +76,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: mebuki-portfolio-manager/tests/e2e/package-lock.json
 
@@ -85,48 +91,112 @@ jobs:
           npm install
           npx playwright install --with-deps chromium
 
-      - name: Start Docker stack
+      - name: Normalize docker-compose.yml for CI environment
+        run: |
+          # act環境特有の空ディレクトリマウントバグと、sedによるYAML構文破壊を防ぐため、
+          # 専用のYAMLパーサー(yq)を用いて wordpress サービスのマウント設定のみを安全かつ完全に削除する。
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod a+x /usr/local/bin/yq
+          yq -i 'del(.services.wordpress.volumes)' docker-compose.yml
+
+      - name: Start Docker stack (db must be healthy before wordpress)
         run: docker compose up -d db wordpress
 
-      - name: Wait for WordPress
+      - name: Debug Apache/HTTP state
+        continue-on-error: true
         run: |
-          for i in {1..60}; do
-            if curl -sSf http://localhost:8000 > /dev/null; then
-              echo "WordPress is ready"
-              exit 0
+          # 2. 完全にクリーンな状態でコンテナを起動
+          docker compose down -v
+          docker compose up -d db wordpress
+          
+          # 3. YAML内に直接書いた設定をコンテナに流し込む（ファイルコピー時のトラブルを全回避）
+          docker compose exec -T wordpress bash -c "cat << 'EOF' > /var/www/html/wp-config.php
+          <?php
+          define( 'DB_NAME', 'wordpress' );
+          define( 'DB_USER', 'wordpress' );
+          define( 'DB_PASSWORD', 'wordpress' );
+          define( 'DB_HOST', 'db:3306' );
+          define( 'DB_CHARSET', 'utf8' );
+          define( 'DB_COLLATE', '' );
+          \$table_prefix = 'wp_';
+          define( 'WP_DEBUG', true );
+          define( 'WP_DEBUG_LOG', true );
+          define( 'WP_DEBUG_DISPLAY', false );
+          
+          /* That's all, stop editing! Happy publishing. */
+          
+          if ( ! defined( 'ABSPATH' ) ) {
+              define( 'ABSPATH', __DIR__ . '/' );
+          }
+          require_once ABSPATH . 'wp-settings.php';
+          EOF"
+          
+          # 3.5. WP-CLIのダウンロードと配置
+          docker compose exec -T wordpress bash -c "
+            curl -sO https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar && \
+            chmod +x wp-cli.phar && \
+            mv wp-cli.phar /usr/local/bin/wp
+          "
+          
+          # 3.6. データベースの接続準備が整うまでポーリング（最大60秒待機）
+          echo "Waiting for database connection..."
+          for i in $(seq 1 30); do
+            if docker compose exec -T wordpress wp db check --allow-root >/dev/null 2>&1; then
+              echo "Database is ready."
+              break
             fi
+            echo "Waiting..."
             sleep 2
           done
-          echo "WordPress did not become ready in time" >&2
-          exit 1
-
-      - name: Prepare WordPress data for E2E
-        env:
-          E2E_ADMIN_USER: admin
-          E2E_ADMIN_PASSWORD: password
-        run: |
-          docker compose exec -T wordpress php /var/www/html/wp-content/plugins/mebuki-portfolio-manager/scripts/setup-wp-e2e.php
+          
+          # 3.7. WordPressの初期セットアップ（テーブル構築）を強制実行
+          docker compose exec -T wordpress wp core install --url="${E2E_BASE_URL}" --title='E2E Test' --admin_user='admin' --admin_password='password' --admin_email='admin@example.com' --allow-root
+          
+          # 3.8. プラグインのソースコードを確実な方法でコンテナ内へコピー＆上書き
+          docker compose exec -T wordpress mkdir -p /tmp/mebuki-src
+          docker compose cp ./mebuki-portfolio-manager wordpress:/tmp/mebuki-src/
+          docker compose exec -T wordpress bash -c "
+            mkdir -p /var/www/html/wp-content/plugins/mebuki-portfolio-manager
+            if [ -d /tmp/mebuki-src/mebuki-portfolio-manager/mebuki-portfolio-manager ]; then
+              cp -a /tmp/mebuki-src/mebuki-portfolio-manager/mebuki-portfolio-manager/* /var/www/html/wp-content/plugins/mebuki-portfolio-manager/
+            elif [ -d /tmp/mebuki-src/mebuki-portfolio-manager ]; then
+              cp -a /tmp/mebuki-src/mebuki-portfolio-manager/* /var/www/html/wp-content/plugins/mebuki-portfolio-manager/
+            else
+              cp -a /tmp/mebuki-src/* /var/www/html/wp-content/plugins/mebuki-portfolio-manager/
+            fi
+          "
+          
+          # 3.9. コピーしたプラグインを有効化
+          docker compose exec -T wordpress wp plugin activate mebuki-portfolio-manager --allow-root
+          
+          # 【追加/変更点】URLを設定後、REST APIを正常稼働させるためにパーマリンク構造を強制適用（.htaccessの生成）
+          docker compose exec -T wordpress wp config set WP_HOME "${E2E_BASE_URL}" --allow-root
+          docker compose exec -T wordpress wp config set WP_SITEURL "${E2E_BASE_URL}" --allow-root
+          docker compose exec -T wordpress wp rewrite structure '/%postname%/' --hard --allow-root
+          
+          # 4. 権限設定と待機スクリプト実行（.htaccessも書き込み可能にする）
+          docker compose exec -T wordpress chown -R www-data:www-data /var/www/html
+          bash scripts/e2e-bootstrap-wordpress.sh
 
       - name: Run Playwright smoke
         env:
-          E2E_BASE_URL: http://localhost:8000
+          E2E_BASE_URL: ${{ env.ACT && 'http://host.docker.internal:8000' || 'http://localhost:8000' }}
           E2E_ADMIN_USER: admin
           E2E_ADMIN_PASSWORD: password
-          E2E_FRONTEND_PATH: /portfolio-e2e/
           E2E_ADMIN_PATH: /wp-admin/admin.php?page=mebuki-pm
         run: |
           cd mebuki-portfolio-manager/tests/e2e
           npm run test:e2e
 
-      - name: Upload Playwright artifacts
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: |
-            mebuki-portfolio-manager/tests/e2e/playwright-report
-            mebuki-portfolio-manager/tests/e2e/test-results
-          if-no-files-found: ignore
+      - name: Extract Playwright Report (Local CI workaround)
+        if: always()
+        run: |
+          # actのアーティファクトサーバーバグ（ファイルが .gz__ になる現象）を回避するため、
+          # ホスト（Windows）から直接アクセスできるワークスペース直下にレポートを物理コピーします。
+          mkdir -p ./playwright-results-local
+          cp -r mebuki-portfolio-manager/tests/e2e/playwright-report/* ./playwright-results-local/ || true
+          cp -r mebuki-portfolio-manager/tests/e2e/test-results/* ./playwright-results-local/ || true
+          echo "✅ レポートをホストマシンの ./playwright-results-local/ に抽出しました。"
 
       - name: Show container logs on failure
         if: failure()

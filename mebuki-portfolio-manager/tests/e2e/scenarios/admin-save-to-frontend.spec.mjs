@@ -3,7 +3,364 @@ import { expect, test } from '@playwright/test';
 const adminUser = process.env.E2E_ADMIN_USER;
 const adminPassword = process.env.E2E_ADMIN_PASSWORD;
 const adminPath = process.env.E2E_ADMIN_PATH || '/wp-admin/admin.php?page=mebuki-pm';
-const frontendPath = process.env.E2E_FRONTEND_PATH || '/';
+
+/** 公開ポートフォリオの描画領域（アサーションをここに閉じて誤検知を防ぐ） */
+function portfolioRoot(page) {
+	return page.locator('#mebuki-frontend-root');
+}
+
+const ASSERT_PUBLIC_MS = 45_000;
+const HYDRATE_MS = 60_000;
+/** 管理画面: ログイン後の遷移・REST GET・メイン UI 描画まで（CI では読み込みが遅いことがある） */
+const ADMIN_READY_MS = 120_000;
+
+/** プラグイン設定画面（admin.php?page=mebuki-pm） */
+function isMebukiPmScreen(url) {
+	return url.pathname.includes('/wp-admin/admin.php') && url.searchParams.get('page') === 'mebuki-pm';
+}
+
+/**
+ * WordPress REST URL は環境により
+ * - /wp-json/mebuki-pm/v1/settings/me
+ * - /?rest_route=/mebuki-pm/v1/settings/me
+ * の両方があり得る。
+ */
+function isSettingsMeGetResponse(resp) {
+	if (resp.request().method() !== 'GET') {
+		return false;
+	}
+	const raw = resp.url();
+	if (raw.includes('/mebuki-pm/v1/settings/me')) {
+		return true;
+	}
+	try {
+		const url = new URL(raw);
+		return (url.searchParams.get('rest_route') || '').includes('/mebuki-pm/v1/settings/me');
+	} catch {
+		return false;
+	}
+}
+
+async function waitForAdminReady(page, baseURL) {
+	const adminUrl = new URL(adminPath, baseURL).toString();
+	await page.goto(adminUrl, { waitUntil: 'domcontentloaded' });
+	// CI では admin.php 遷移と設定 GET の順序が不安定なため、URL と見出しの双方で到達判定する。
+	if (!isMebukiPmScreen(new URL(page.url()))) {
+		await page.goto(adminUrl, { waitUntil: 'load' });
+	}
+	await expect(page.getByRole('heading', { name: 'サイト表示マスター' })).toBeVisible({
+		timeout: ADMIN_READY_MS,
+	});
+}
+
+async function loginAndOpenAdmin(page, baseURL) {
+	await page.goto('/wp-login.php');
+	await page.locator('#user_login').fill(adminUser);
+	await page.locator('#user_pass').fill(adminPassword);
+	await page.locator('#wp-submit').click();
+	// 一度 admin 画面へ明示遷移するため、ログイン直後の遷移先（ダッシュボード/ログインリダイレクト）に依存しない。
+	await waitForAdminReady(page, baseURL);
+}
+
+function sectionCard(page, sectionId) {
+	return page.locator(`[data-section-id="${sectionId}"]`).first();
+}
+
+async function saveSettings(page) {
+	const responsePromise = page.waitForResponse(
+		(resp) =>
+			resp.url().includes('mebuki-pm/v1/settings/me') &&
+			resp.request().method() === 'POST' &&
+			resp.status() >= 200 &&
+			resp.status() < 300,
+		{ timeout: 60_000 }
+	);
+	await page.getByRole('button', { name: '保存' }).click();
+	await responsePromise;
+	await expect(page.getByText('保存しました。')).toBeVisible();
+}
+
+/**
+ * [mebuki_portfolio] 付き公開ページへの候補パス（優先順）。
+ * - E2E_FRONTEND_PATH があればそれのみ
+ * - 未設定時は ?page_id= を最優先し、続けて index.php・きれいな URL（パーマリンク未反映の Docker/CI 向け）
+ */
+async function collectPortfolioPublicPaths(request, baseURL) {
+	const env = (process.env.E2E_FRONTEND_PATH || '').trim();
+	if (env) {
+		return [env.startsWith('/') ? env : `/${env}`];
+	}
+	const base = String(baseURL ?? '').replace(/\/$/, '');
+	if (!base) {
+		throw new Error('Playwright の baseURL が空です。E2E_BASE_URL を設定してください。');
+	}
+	const params = { slug: 'portfolio-e2e', per_page: '1' };
+	let res = await request.get(`${base}/wp-json/wp/v2/pages`, { params });
+	if (!res.ok() && res.status() === 404) {
+		// CI で rewrite が未収束なときは ?rest_route 経由にフォールバックする。
+		res = await request.get(`${base}/`, {
+			params: { rest_route: '/wp/v2/pages', ...params },
+		});
+	}
+	if (!res.ok()) {
+		throw new Error(
+			`WP REST が ${res.status()} を返しました。E2E_BASE_URL と WordPress の起動を確認してください。`
+		);
+	}
+	const pages = await res.json();
+	const row = Array.isArray(pages) && pages[0] ? pages[0] : null;
+	const pageId = row && (row.id ?? row.ID) != null ? Number(row.id ?? row.ID) : NaN;
+	if (!row || !Number.isFinite(pageId) || pageId <= 0) {
+		throw new Error(
+			'slug `portfolio-e2e` の固定ページが見つかりません。scripts/setup-wp-e2e.php を実行するか、E2E_FRONTEND_PATH を設定してください。'
+		);
+	}
+	const paths = [];
+	paths.push(`/?page_id=${pageId}`);
+	paths.push(`/index.php?page_id=${pageId}`);
+	paths.push(`/?p=${pageId}`);
+	// setup-wp-e2e.php で page_on_front をこの固定ページにしているため、
+	// rewrite 不安定時の最終フォールバックとしてルートも候補に入れる。
+	paths.push('/');
+	if (row.link) {
+		try {
+			const p = new URL(row.link).pathname || '/';
+			if (p !== '/') {
+				paths.push(p);
+			}
+		} catch {
+			// ignore malformed link
+		}
+	}
+	const seen = new Set();
+	const out = [];
+	for (const p of paths) {
+		if (seen.has(p)) continue;
+		seen.add(p);
+		out.push(p);
+	}
+	return out;
+}
+
+/**
+ * ショートコード付き公開ページを開き、フロント React が実際にマウントされるまで待つ。
+ * #mebuki-frontend-root は PHP が空 div を出すだけなので、attached だけでは未マウントでも通ってしまう。
+ */
+async function openPublicPortfolio(page, request, baseURL) {
+	const paths = await collectPortfolioPublicPaths(request, baseURL);
+	const errors = [];
+	for (const path of paths) {
+		const pageErrors = [];
+		const onPageError = (err) => pageErrors.push(err.message);
+		page.on('pageerror', onPageError);
+		try {
+			let response;
+			try {
+				response = await page.goto(path, { waitUntil: 'load' });
+			} catch (e) {
+				errors.push(`${path}: navigation ${String(e)}`);
+				continue;
+			}
+			if (!response) {
+				errors.push(`${path}: no response`);
+				continue;
+			}
+			if (response.status() >= 400) {
+				errors.push(`${path}: HTTP ${response.status()}`);
+				continue;
+			}
+			try {
+				await page.locator('#mebuki-frontend-root').waitFor({ state: 'attached', timeout: 25_000 });
+			} catch (e) {
+				errors.push(`${path}: no #mebuki-frontend-root (${String(e)})`);
+				continue;
+			}
+			try {
+				await page.waitForFunction(
+					() => {
+						const el = document.getElementById('mebuki-frontend-root');
+						if (!el) {
+							return false;
+						}
+						if (el.querySelector('[data-theme]')) {
+							return true;
+						}
+						return el.childElementCount > 0;
+					},
+					{ timeout: HYDRATE_MS }
+				);
+			} catch (e) {
+				const extra =
+					pageErrors.length > 0 ? ` | pageerror: ${pageErrors.join('; ')}` : '';
+				errors.push(`${path}: portfolio UI did not mount (${String(e)})${extra}`);
+				continue;
+			}
+			return;
+		} finally {
+			page.off('pageerror', onPageError);
+		}
+	}
+	throw new Error(
+		`公開ポートフォリオページを開けませんでした。${errors.join(' | ')}`
+	);
+}
+
+async function openReviewFormFromPortfolio(page, request, baseURL) {
+	const writeLink = portfolioRoot(page).getByRole('link', { name: '口コミを書く' }).first();
+	await expect(writeLink).toBeVisible({ timeout: ASSERT_PUBLIC_MS });
+	const href = await writeLink.getAttribute('href');
+	if (!href) {
+		throw new Error('口コミフォームへのリンク href を取得できませんでした。');
+	}
+	const heading = page.getByRole('heading', { name: '口コミ投稿フォーム' });
+	const parsed = new URL(href);
+	const target = parsed.searchParams.get('mebuki_review_target') || '';
+	const itemId = parsed.searchParams.get('item_id') || '';
+	if (!target || !itemId) {
+		throw new Error(`口コミフォームURLのクエリが不足しています: ${href}`);
+	}
+	await page.goto(href, { waitUntil: 'load' });
+	const hasHeading = (await heading.count()) > 0;
+	if (hasHeading) {
+		await expect(heading).toBeVisible({ timeout: 20_000 });
+		const canSubmitOnThisPage = await page.evaluate(() => {
+			const root = window.mebukiPmSettings?.root;
+			const uidRaw = window.mebukiPmSettings?.portfolioUserId;
+			const uid = Number(uidRaw);
+			return Boolean(root && Number.isFinite(uid) && uid > 0);
+		});
+		if (canSubmitOnThisPage) {
+			return;
+		}
+	}
+	// /reviews/ が環境依存で解決できないケースでは、公開ページ候補にクエリを付与して投稿可能状態までフォールバックする。
+	const publicPaths = await collectPortfolioPublicPaths(request, baseURL);
+	const fallbackErrors = [];
+	for (const p of publicPaths) {
+		const fallback = new URL(p, baseURL);
+		fallback.searchParams.set('mebuki_review_target', target);
+		fallback.searchParams.set('item_id', itemId);
+		await page.goto(fallback.toString(), { waitUntil: 'load' });
+		if ((await heading.count()) === 0) {
+			fallbackErrors.push(`${fallback.toString()}: heading missing`);
+			continue;
+		}
+		await expect(heading).toBeVisible({ timeout: 20_000 });
+		const canSubmitOnThisPage = await page.evaluate(() => {
+			const root = window.mebukiPmSettings?.root;
+			const uidRaw = window.mebukiPmSettings?.portfolioUserId;
+			const uid = Number(uidRaw);
+			return Boolean(root && Number.isFinite(uid) && uid > 0);
+		});
+		if (canSubmitOnThisPage) {
+			return;
+		}
+		fallbackErrors.push(`${fallback.toString()}: runtime not ready`);
+	}
+	throw new Error(`口コミフォームを投稿可能状態で開けませんでした。${fallbackErrors.join(' | ')}`);
+}
+
+async function fillReviewFormAndSubmit(page, reviewName, reviewText) {
+	const form = page.locator('form[novalidate]').first();
+	const nameInput = form.locator('input[type="text"]').first();
+	const textArea = form.locator('textarea').first();
+	const submitButton = page.getByRole('button', { name: '口コミを投稿する' });
+	const successMessage = page.getByText('口コミを送信しました。');
+	const submitErrorMessage = page.locator('p.rounded-md.bg-rose-50').first();
+	for (let attempt = 1; attempt <= 3; attempt += 1) {
+		if ((await form.count()) === 0) {
+			const diag = await page.evaluate(() => ({
+				url: window.location.href,
+				title: document.title,
+				hasHeading: !!Array.from(document.querySelectorAll('h1, h2, h3')).find((el) =>
+					(el.textContent || '').includes('口コミ投稿フォーム')
+				),
+				bodyPreview: (document.body?.innerText || '').slice(0, 240),
+			}));
+			throw new Error(`口コミ投稿フォームが見つかりません: ${JSON.stringify(diag)}`);
+		}
+		await expect(form).toBeVisible({ timeout: 10_000 });
+		await expect(nameInput).toBeVisible({ timeout: 10_000 });
+		await expect(textArea).toBeVisible({ timeout: 10_000 });
+		await nameInput.fill(reviewName);
+		await textArea.fill(reviewText);
+		await expect(nameInput).toHaveValue(reviewName);
+		await expect(textArea).toHaveValue(reviewText);
+		try {
+			await expect(submitButton).toBeEnabled({ timeout: 4_000 });
+			await submitButton.click();
+			await page.waitForFunction(() => {
+				const text = document.body?.innerText || '';
+				return (
+					text.includes('口コミを送信しました。') ||
+					text.includes('投稿設定を読み込めませんでした。') ||
+					text.includes('対象作品を特定できませんでした。') ||
+					text.includes('HTTP ')
+				);
+			}, { timeout: 15_000 });
+			if ((await submitErrorMessage.count()) > 0 && (await submitErrorMessage.isVisible())) {
+				throw new Error(`口コミ投稿APIがエラーを返しました: ${await submitErrorMessage.innerText()}`);
+			}
+			await expect(successMessage).toBeVisible({ timeout: 5_000 });
+			return;
+		} catch {
+			if (attempt === 3) {
+				const diag = await page.evaluate(() => {
+					const settings = window.mebukiPmSettings || {};
+					const btn = Array.from(document.querySelectorAll('button')).find(
+						(b) => (b.textContent || '').includes('口コミを投稿する')
+					);
+					return {
+						root: settings.root || null,
+						portfolioUserId: settings.portfolioUserId ?? null,
+						reviewTarget: new URLSearchParams(window.location.search).get(
+							'mebuki_review_target'
+						),
+						itemId: new URLSearchParams(window.location.search).get('item_id'),
+						buttonDisabled: btn ? btn.hasAttribute('disabled') : null,
+						errorText:
+							document.querySelector('p.rounded-md.bg-rose-50')?.textContent || null,
+					};
+				});
+				throw new Error(`口コミ投稿ボタンが有効化されませんでした: ${JSON.stringify(diag)}`);
+			}
+			await page.waitForTimeout(700);
+		}
+	}
+}
+
+async function waitForReviewSwitchInAdmin(page, reviewName, baseURL) {
+	const reviewsCard = sectionCard(page, 'reviews');
+	for (let attempt = 1; attempt <= 6; attempt += 1) {
+		const reviewRow = reviewsCard.locator('div').filter({
+			hasText: reviewName,
+		}).first();
+		// 口コミ行に複数 switch が描画される環境があるため、有効なものを優先して一意に絞る。
+		const enabledReviewSwitch = reviewRow.locator('button[role="switch"]:not([disabled])').first();
+		const reviewSwitch =
+			(await enabledReviewSwitch.count()) > 0
+				? enabledReviewSwitch
+				: reviewRow.locator('button[role="switch"]').first();
+		if ((await reviewSwitch.count()) > 0) {
+			await expect(reviewSwitch).toBeVisible({ timeout: 10_000 });
+			return reviewSwitch;
+		}
+		const reloadButton = reviewsCard.getByRole('button', { name: '再読み込み' });
+		if ((await reloadButton.count()) > 0 && (await reloadButton.isVisible())) {
+			await reloadButton.click();
+			await page.waitForTimeout(600);
+			continue;
+		}
+		if (attempt < 6) {
+			await waitForAdminReady(page, baseURL);
+			await page.waitForTimeout(800);
+		}
+	}
+	const diagnostics = await reviewsCard.innerText().catch(() => '(reviews card text unavailable)');
+	throw new Error(
+		`管理画面の口コミ一覧に投稿レビューが見つかりませんでした: ${reviewName} | card=${diagnostics.slice(0, 400)}`
+	);
+}
 
 test.describe('Admin save to frontend smoke', () => {
 	test.skip(
@@ -11,40 +368,227 @@ test.describe('Admin save to frontend smoke', () => {
 		'E2E_ADMIN_USER / E2E_ADMIN_PASSWORD are required.'
 	);
 
-	test('管理画面で保存したAboutが公開ページに表示される', async ({ page, baseURL }) => {
+	test('クレド: 保存内容が公開ページへ反映される', async ({ page, request, baseURL }) => {
+		const marker = Date.now().toString();
+		const credoTitle = `E2E Credo ${marker}`;
+		const credoBody = `E2E Credo Body ${marker}`;
+
+		await loginAndOpenAdmin(page, baseURL);
+		const card = sectionCard(page, 'credo');
+		await card.getByPlaceholder('例: Credo / 大切にしていること').fill(credoTitle);
+		await card.getByPlaceholder('信条や大切にしていることを入力').fill(credoBody);
+		await saveSettings(page);
+
+		await openPublicPortfolio(page, request, baseURL);
+		await expect(portfolioRoot(page).getByText(credoTitle)).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
+		});
+		await expect(portfolioRoot(page).getByText(credoBody)).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
+		});
+	});
+
+	test('自己紹介: 保存内容が公開ページへ反映される', async ({ page, request, baseURL }) => {
 		const marker = Date.now().toString();
 		const aboutTitle = `E2E About ${marker}`;
-		const aboutBody = `E2E Body ${marker}`;
+		const aboutBody = `E2E About Body ${marker}`;
 
-		await page.goto('/wp-login.php');
-		await page.locator('#user_login').fill(adminUser);
-		await page.locator('#user_pass').fill(adminPassword);
-		await page.locator('#wp-submit').click();
-		await page.waitForURL(/wp-admin/);
-
-		await page.goto(new URL(adminPath, baseURL).toString());
-		await expect(page.getByRole('heading', { name: 'サイト表示マスター' })).toBeVisible();
-
-		const aboutCard = page
-			.locator('div')
-			.filter({ has: page.getByRole('heading', { name: '自己紹介（About）' }) })
-			.first();
-
-		const addButton = aboutCard.getByRole('button', {
+		await loginAndOpenAdmin(page, baseURL);
+		const card = sectionCard(page, 'about');
+		const addButton = card.getByRole('button', {
 			name: '＋ タイトル＋本文のブロックを追加',
 		});
-		if (await addButton.count()) {
-			await addButton.first().click();
+		if ((await card.getByPlaceholder('例: 機材紹介').count()) === 0) {
+			await addButton.click();
 		}
+		await card.getByPlaceholder('例: 機材紹介').first().fill(aboutTitle);
+		await card.getByPlaceholder('このブロックの本文').first().fill(aboutBody);
+		await saveSettings(page);
 
-		await aboutCard.locator('label:has-text("タイトル") + input').first().fill(aboutTitle);
-		await aboutCard.locator('label:has-text("本文") + textarea').first().fill(aboutBody);
+		await openPublicPortfolio(page, request, baseURL);
+		await expect(portfolioRoot(page).getByText(aboutTitle)).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
+		});
+		await expect(portfolioRoot(page).getByText(aboutBody)).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
+		});
+	});
 
-		await page.getByRole('button', { name: '保存' }).click();
-		await expect(page.getByText('保存しました。')).toBeVisible();
+	test('YouTubeギャラリー: 保存内容が公開ページへ反映される', async ({
+		page,
+		request,
+		baseURL,
+	}) => {
+		const marker = Date.now().toString();
+		const title = `E2E YouTube ${marker}`;
+		const url = `https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=${marker.slice(-4)}`;
 
-		await page.goto(new URL(frontendPath, baseURL).toString());
-		await expect(page.getByText(aboutTitle)).toBeVisible({ timeout: 15_000 });
-		await expect(page.getByText(aboutBody)).toBeVisible({ timeout: 15_000 });
+		await loginAndOpenAdmin(page, baseURL);
+		const card = sectionCard(page, 'youtube_gallery');
+		if ((await card.getByPlaceholder('表示名').count()) === 0) {
+			await card.getByRole('button', { name: '＋ 動画を追加' }).click();
+		}
+		await card.getByPlaceholder('表示名').first().fill(title);
+		await card.getByPlaceholder('https://www.youtube.com/watch?v=...').first().fill(url);
+		await saveSettings(page);
+
+		await openPublicPortfolio(page, request, baseURL);
+		await expect(portfolioRoot(page).getByRole('heading', { name: title })).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
+		});
+	});
+
+	test('イラストギャラリー: 保存内容が公開ページへ反映される', async ({
+		page,
+		request,
+		baseURL,
+	}) => {
+		const marker = Date.now().toString();
+		const title = `E2E Illust ${marker}`;
+		const url = `https://example.com/e2e-${marker}.jpg`;
+
+		await loginAndOpenAdmin(page, baseURL);
+		const card = sectionCard(page, 'illustration_gallery');
+		await expect(card).toBeVisible({ timeout: ADMIN_READY_MS });
+		if ((await card.getByPlaceholder('表示名').count()) === 0) {
+			await card.getByRole('button', { name: '＋ イラストを追加' }).click();
+		}
+		await card.getByPlaceholder('表示名').first().fill(title);
+		await expect(card.getByPlaceholder('https://...').first()).toBeVisible({
+			timeout: ADMIN_READY_MS,
+		});
+		await card.getByPlaceholder('https://...').first().fill(url);
+		await saveSettings(page);
+
+		await openPublicPortfolio(page, request, baseURL);
+		await expect(portfolioRoot(page).getByRole('heading', { name: title })).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
+		});
+	});
+
+	test('リンクカード: 保存内容が公開ページへ反映される', async ({ page, request, baseURL }) => {
+		const marker = Date.now().toString();
+		const title = `E2E Link ${marker}`;
+		const url = `https://example.com/e2e-link-${marker}`;
+
+		await loginAndOpenAdmin(page, baseURL);
+		const card = sectionCard(page, 'link_cards');
+		if ((await card.getByPlaceholder('リンクタイトル').count()) === 0) {
+			await card.getByRole('button', { name: '＋ リンクカードを追加' }).click();
+		}
+		await card.getByPlaceholder('リンクタイトル').first().fill(title);
+		await card.getByPlaceholder('https://...').first().fill(url);
+		await saveSettings(page);
+
+		await openPublicPortfolio(page, request, baseURL);
+		await expect(portfolioRoot(page).getByRole('link', { name: title })).toHaveAttribute(
+			'href',
+			url
+		);
+	});
+
+	test('料金表: 保存内容が公開ページへ反映される', async ({ page, request, baseURL }) => {
+		const marker = Date.now().toString();
+		const category = `E2E Category ${marker}`;
+		const courseName = `E2E Course ${marker}`;
+
+		await loginAndOpenAdmin(page, baseURL);
+		const card = sectionCard(page, 'pricing');
+		await expect(card).toBeVisible({ timeout: ADMIN_READY_MS });
+
+		if ((await card.getByPlaceholder('例: イラスト制作').count()) === 0) {
+			await card.getByRole('button', { name: '＋ カテゴリを追加' }).click();
+		}
+		await card.getByPlaceholder('例: イラスト制作').first().fill(category);
+		if ((await card.locator('input[type="text"]').count()) < 2) {
+			await card.getByRole('button', { name: '＋ コースを追加' }).first().click();
+		}
+		await card.locator('input[type="text"]').nth(1).fill(courseName);
+		await saveSettings(page);
+
+		await openPublicPortfolio(page, request, baseURL);
+		await expect(portfolioRoot(page).getByText(courseName)).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
+		});
+	});
+
+	test('FAQ: 保存内容が公開ページへ反映される', async ({ page, request, baseURL }) => {
+		const marker = Date.now().toString();
+		const question = `E2E FAQ Q ${marker}`;
+		const answer = `E2E FAQ A ${marker}`;
+
+		await loginAndOpenAdmin(page, baseURL);
+		const card = sectionCard(page, 'faq');
+		if ((await card.locator('input[type="text"]').count()) === 0) {
+			await card.getByRole('button', { name: '＋ FAQ を追加' }).click();
+		}
+		await card.locator('input[type="text"]').first().fill(question);
+		await card.locator('textarea').first().fill(answer);
+		await saveSettings(page);
+
+		await openPublicPortfolio(page, request, baseURL);
+		const questionNode = portfolioRoot(page).getByText(question).first();
+		await expect(questionNode).toBeVisible({ timeout: ASSERT_PUBLIC_MS });
+		const answerNode = portfolioRoot(page).getByText(answer);
+		if ((await answerNode.count()) === 0) {
+			await questionNode.click();
+		}
+		await expect(portfolioRoot(page).getByText(answer)).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
+		});
+	});
+
+	test('口コミ: 管理画面承認と設定保存が公開ページへ反映される', async ({
+		page,
+		request,
+		baseURL,
+	}) => {
+		const marker = Date.now().toString();
+		const youtubeTitle = `E2E Review Source ${marker}`;
+		const reviewName = `E2E Reviewer ${marker}`;
+		const reviewText = `E2E Review Body ${marker}`;
+		const fallbackIconUrl = `https://example.com/fallback-${marker}.png`;
+
+		await loginAndOpenAdmin(page, baseURL);
+
+		const youtubeCard = sectionCard(page, 'youtube_gallery');
+		if ((await youtubeCard.getByPlaceholder('表示名').count()) === 0) {
+			await youtubeCard.getByRole('button', { name: '＋ 動画を追加' }).click();
+		}
+		await youtubeCard.getByPlaceholder('表示名').first().fill(youtubeTitle);
+		await youtubeCard
+			.getByPlaceholder('https://www.youtube.com/watch?v=...')
+			.first()
+			.fill('https://www.youtube.com/watch?v=aqz-KE-bpKQ');
+
+		const reviewsCard = sectionCard(page, 'reviews');
+		await reviewsCard.locator('#review-fallback-icon-url').fill(fallbackIconUrl);
+		await saveSettings(page);
+
+		await openPublicPortfolio(page, request, baseURL);
+		await openReviewFormFromPortfolio(page, request, baseURL);
+
+		await fillReviewFormAndSubmit(page, reviewName, reviewText);
+
+		await waitForAdminReady(page, baseURL);
+
+		const reviewSwitch = await waitForReviewSwitchInAdmin(page, reviewName, baseURL);
+		if ((await reviewSwitch.getAttribute('aria-checked')) !== 'true') {
+			await reviewSwitch.click();
+		}
+		await expect(reviewSwitch).toHaveAttribute('aria-checked', 'true');
+
+		await openPublicPortfolio(page, request, baseURL);
+		await expect(portfolioRoot(page).getByText(reviewName)).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
+		});
+		await expect(portfolioRoot(page).getByText(reviewText)).toBeVisible({
+			timeout: ASSERT_PUBLIC_MS,
+		});
+		await expect(portfolioRoot(page).locator(`img[src="${fallbackIconUrl}"]`).first()).toBeVisible(
+			{
+				timeout: ASSERT_PUBLIC_MS,
+			}
+		);
 	});
 });
