@@ -11,6 +11,12 @@ class Mebuki_PM_Frontend {
 	public const QUERY_VAR_USER = 'mebuki_portfolio_user';
 	public const QUERY_VAR_MODE = 'mebuki_portfolio_mode';
 	public const BASE_PATH = 'portfolio';
+	public const PAGE_SLUG_PORTFOLIO = 'portfolio';
+	public const PAGE_SLUG_DASHBOARD = 'dashboard';
+	public const PAGE_SLUG_REVIEWS = 'reviews';
+	public const MODE_DEFAULT = '';
+	public const MODE_REVIEWS = 'reviews';
+	public const MODE_DASHBOARD = 'dashboard';
 
 	public const SCRIPT_HANDLE = 'mebuki-pm-frontend';
 
@@ -35,13 +41,18 @@ class Mebuki_PM_Frontend {
 	 */
 	public static function register_rewrite_rules() {
 		add_rewrite_rule(
+			'^' . self::BASE_PATH . '/([^/]+)/dashboard/?$',
+			'index.php?pagename=' . self::PAGE_SLUG_DASHBOARD . '&' . self::QUERY_VAR_USER . '=$matches[1]&' . self::QUERY_VAR_MODE . '=' . self::MODE_DASHBOARD,
+			'top'
+		);
+		add_rewrite_rule(
 			'^' . self::BASE_PATH . '/([^/]+)/reviews/?$',
-			'index.php?pagename=' . self::BASE_PATH . '&' . self::QUERY_VAR_USER . '=$matches[1]&' . self::QUERY_VAR_MODE . '=reviews',
+			'index.php?pagename=' . self::PAGE_SLUG_REVIEWS . '&' . self::QUERY_VAR_USER . '=$matches[1]&' . self::QUERY_VAR_MODE . '=' . self::MODE_REVIEWS,
 			'top'
 		);
 		add_rewrite_rule(
 			'^' . self::BASE_PATH . '/([^/]+)/?$',
-			'index.php?pagename=' . self::BASE_PATH . '&' . self::QUERY_VAR_USER . '=$matches[1]',
+			'index.php?pagename=' . self::PAGE_SLUG_PORTFOLIO . '&' . self::QUERY_VAR_USER . '=$matches[1]',
 			'top'
 		);
 	}
@@ -115,6 +126,37 @@ class Mebuki_PM_Frontend {
 			return $from_query;
 		}
 		return self::resolve_legacy_owner_context();
+	}
+
+	/**
+	 * Current portfolio mode from query var.
+	 *
+	 * @return string
+	 */
+	private static function get_portfolio_mode() {
+		$raw_mode = get_query_var( self::QUERY_VAR_MODE );
+		$mode     = sanitize_key( is_string( $raw_mode ) ? $raw_mode : '' );
+		if ( self::MODE_DASHBOARD === $mode || self::MODE_REVIEWS === $mode ) {
+			return $mode;
+		}
+		return self::MODE_DEFAULT;
+	}
+
+	/**
+	 * Whether logged-in actor may edit this portfolio.
+	 *
+	 * @param int $owner_id Portfolio owner user id.
+	 * @return bool
+	 */
+	private static function can_manage_portfolio( $owner_id ) {
+		if ( ! is_user_logged_in() ) {
+			return false;
+		}
+		if ( current_user_can( 'manage_options' ) ) {
+			return true;
+		}
+		$actor_id = get_current_user_id();
+		return $actor_id > 0 && $actor_id === (int) $owner_id;
 	}
 
 	/**
@@ -202,8 +244,10 @@ class Mebuki_PM_Frontend {
 		);
 
 		$owner_ctx = self::get_portfolio_owner_context();
-		$owner_id  = $owner_ctx['user_id'];
-		$owner_slug = $owner_ctx['user_slug'];
+		$owner_id       = $owner_ctx['user_id'];
+		$owner_slug     = $owner_ctx['user_slug'];
+		$portfolio_mode = self::get_portfolio_mode();
+		$can_manage     = self::can_manage_portfolio( $owner_id );
 		$portfolio_path = '' !== $owner_slug
 			? home_url( '/' . self::BASE_PATH . '/' . $owner_slug . '/' )
 			: home_url( '/' );
@@ -217,6 +261,8 @@ class Mebuki_PM_Frontend {
 				'settings'          => self::get_settings_for_localize( $owner_id ),
 				'portfolioUserId'   => $owner_id,
 				'portfolioUserSlug' => $owner_slug,
+				'portfolioMode'     => $portfolio_mode,
+				'canManagePortfolio' => $can_manage,
 				'portfolioPath'     => esc_url_raw( $portfolio_path ),
 				'siteName'          => wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ),
 				'siteUrl'           => esc_url_raw( home_url( '/' ) ),
