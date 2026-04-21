@@ -644,6 +644,26 @@ class Mebuki_PM_API {
 	}
 
 	/**
+	 * Resolve public portfolio URL for the specified owner.
+	 *
+	 * @param int $user_id Portfolio owner user id.
+	 * @return string
+	 */
+	private static function get_portfolio_url_for_user( $user_id ) {
+		$user = get_userdata( (int) $user_id );
+		if ( ! $user instanceof WP_User ) {
+			return home_url( '/' );
+		}
+
+		$user_slug = sanitize_title( (string) $user->user_nicename );
+		if ( '' === $user_slug ) {
+			return home_url( '/' );
+		}
+
+		return home_url( '/' . Mebuki_PM_Frontend::BASE_PATH . '/' . $user_slug . '/' );
+	}
+
+	/**
 	 * Webhook signing secret (whsec_...) from saved settings option mirror.
 	 *
 	 * @param int $user_id Portfolio owner user id.
@@ -1035,7 +1055,7 @@ class Mebuki_PM_API {
 
 		$order_id = (int) $row['id'];
 
-		$site_url = home_url( '/' );
+		$site_url = self::get_portfolio_url_for_user( $user_id );
 		$success_url = add_query_arg(
 			array(
 				'payment'    => 'success',
