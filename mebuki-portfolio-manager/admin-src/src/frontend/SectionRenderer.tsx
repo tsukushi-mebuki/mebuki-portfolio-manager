@@ -29,6 +29,7 @@ const SECTION_REGISTRY: Record<
 	SectionId,
 	( ctx: SectionRenderContext ) => ReactNode
 > = {
+	hero: () => null,
 	about: ( { vm } ) => <AboutSection items={ vm.about.items } />,
 	credo: ( { vm } ) => <CredoSection credo={ vm.credo } />,
 	'youtube_gallery': () => null,
@@ -51,7 +52,6 @@ export function SectionRenderer( { sectionId, vm, siteUrl, publishedReviews }: P
 				items={ vm.youtube_gallery.items }
 				displayMode={ vm.youtube_gallery.display_mode }
 				itemsPerPage={ vm.youtube_gallery.items_per_page }
-				siteUrl={ siteUrl }
 				publishedReviews={ publishedReviews ?? [] }
 				showReviewsUnderItems={ vm.show_reviews_under_items }
 				reviewFallbackIconUrl={ vm.review_fallback_icon_url }
@@ -65,7 +65,6 @@ export function SectionRenderer( { sectionId, vm, siteUrl, publishedReviews }: P
 				items={ vm.illustration_gallery.items }
 				displayMode={ vm.illustration_gallery.display_mode }
 				itemsPerPage={ vm.illustration_gallery.items_per_page }
-				siteUrl={ siteUrl }
 				publishedReviews={ publishedReviews ?? [] }
 				showReviewsUnderItems={ vm.show_reviews_under_items }
 				reviewFallbackIconUrl={ vm.review_fallback_icon_url }

@@ -1,6 +1,7 @@
 import type { ThemePresetId, ThemeTokens } from '../lib/themePresets';
 
 export type SectionId =
+	| 'hero'
 	| 'about'
 	| 'credo'
 	| 'youtube_gallery'
@@ -13,6 +14,17 @@ export type SectionId =
 export interface CredoConfig {
 	title: string;
 	body: string;
+}
+
+export type HeroOverlayImageAlign = 'center' | 'left' | 'right';
+
+export interface HeroConfig {
+	title: string;
+	subtitle: string;
+	cover_image_url: string;
+	/** カバー上に重ねる画像（ロゴ・キャラなど）。カバー画像とは独立。 */
+	overlay_image_url: string;
+	overlay_image_align: HeroOverlayImageAlign;
 }
 
 /** YouTube / イラストギャラリー共通の1行（口コミ用 item_id） */
@@ -84,6 +96,7 @@ export interface MebukiFormState {
 	layout_order: SectionId[];
 	theme_preset: ThemePresetId;
 	theme: ThemeTokens;
+	hero: HeroConfig;
 	about: { items: AboutItem[] };
 	credo: CredoConfig;
 	youtube_gallery: GalleryConfig;

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { GalleryCategory, GalleryReviewItem } from '../../types/settings';
 import type { ReviewRow } from '../../types/settings';
-import { ReviewWriteButton } from './ReviewWriteButton';
 import { ItemReviewsBlock } from './ItemReviewsBlock';
 
 type Props = {
@@ -9,7 +8,6 @@ type Props = {
 	items: GalleryReviewItem[];
 	displayMode: 'tab' | 'category_sections';
 	itemsPerPage: number;
-	siteUrl: string;
 	publishedReviews: ReviewRow[];
 	showReviewsUnderItems: boolean;
 	reviewFallbackIconUrl: string;
@@ -37,7 +35,6 @@ export function IllustrationGallery( {
 	items,
 	displayMode,
 	itemsPerPage,
-	siteUrl,
 	publishedReviews,
 	showReviewsUnderItems,
 	reviewFallbackIconUrl,
@@ -144,13 +141,6 @@ export function IllustrationGallery( {
 							{ row.title }
 						</h3>
 					) : null }
-					<div className="mt-auto flex justify-end">
-						<ReviewWriteButton
-							siteUrl={ siteUrl }
-							itemType="illustration"
-							itemId={ row.item_id }
-						/>
-					</div>
 					<ItemReviewsBlock
 						reviews={ itemReviews }
 						fallbackIconUrl={ reviewFallbackIconUrl }

@@ -6,6 +6,7 @@ import {
 	type ThemeTokens,
 } from './frontendTheme';
 import { FrontendApp } from './frontend/FrontendApp';
+import App from './App';
 import './frontend.css';
 
 type MebukiPmWindowConfig = {
@@ -14,6 +15,8 @@ type MebukiPmWindowConfig = {
 	settings?: Record<string, unknown>;
 	portfolioUserId?: number;
 	portfolioUserSlug?: string;
+	portfolioMode?: string;
+	canManagePortfolio?: boolean;
 	portfolioPath?: string;
 	siteName?: string;
 	siteUrl?: string;
@@ -89,6 +92,23 @@ function FrontendShell() {
 	}, [] );
 
 	const raw = window.mebukiPmSettings?.settings;
+	const isDashboard =
+		( window.mebukiPmSettings?.portfolioMode ?? '' ) === 'dashboard';
+	const canManage = Boolean( window.mebukiPmSettings?.canManagePortfolio );
+	const restRoot = window.mebukiPmSettings?.root;
+	const restNonce = window.mebukiPmSettings?.nonce;
+	const siteUrl = window.mebukiPmSettings?.siteUrl;
+	const portfolioPath = window.mebukiPmSettings?.portfolioPath;
+
+	if ( isDashboard && restRoot && restNonce ) {
+		window.mebukiPmRest = {
+			root: restRoot,
+			nonce: restNonce,
+			siteUrl,
+			portfolioPath,
+		};
+	}
+
 	const preset = normalizeThemePreset( raw?.theme_preset );
 	const theme = resolveThemeFromRaw( raw?.theme, preset );
 	return (
@@ -97,7 +117,19 @@ function FrontendShell() {
 			data-theme={ preset }
 			style={ themeToCssVars( theme ) }
 		>
-			<FrontendApp />
+			{ isDashboard ? (
+				canManage ? (
+					<App />
+				) : (
+					<div className="mx-auto max-w-3xl px-4 py-16">
+						<div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+							このダッシュボードを操作できるのは、対象ポートフォリオの所有者本人のみです。
+						</div>
+					</div>
+				)
+			) : (
+				<FrontendApp />
+			) }
 		</div>
 	);
 }

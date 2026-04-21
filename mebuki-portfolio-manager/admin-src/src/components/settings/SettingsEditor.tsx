@@ -1,21 +1,6 @@
-import {
-	closestCenter,
-	DndContext,
-	type DragEndEvent,
-	KeyboardSensor,
-	PointerSensor,
-	useSensor,
-	useSensors,
-} from '@dnd-kit/core';
-import {
-	arrayMove,
-	SortableContext,
-	sortableKeyboardCoordinates,
-	verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { buildPayloadForApi, SECTION_LABELS, toFormState } from '../../lib/mergeSettings';
+import { buildPayloadForApi, toFormState } from '../../lib/mergeSettings';
 import { fetchSettingsMe, saveSettingsMe } from '../../lib/settingsApi';
 import type { MebukiFormState, SectionId } from '../../types/settings';
 import { Toast, type ToastVariant } from '../Toast';
@@ -24,13 +9,28 @@ import { YouTubeGallery } from '../gallery/YouTubeGallery';
 import { AboutRepeater } from './AboutRepeater';
 import { BasicSettingsCard } from './BasicSettingsCard';
 import { ReviewsSection } from './ReviewsSection';
-import { SortableSectionCard } from './SortableSectionCard';
 import {
 	CredoSectionEditor,
 	FaqSection,
+	HeroSectionEditor,
 	LinkCardsSection,
 	PricingSection,
 } from './SectionEditors';
+
+type SettingsTabId = 'basic' | SectionId;
+
+const SETTINGS_TABS: { id: SettingsTabId; label: string }[] = [
+	{ id: 'basic', label: '基本設定' },
+	{ id: 'hero', label: 'ヒーローセクション' },
+	{ id: 'about', label: '自己紹介' },
+	{ id: 'credo', label: 'クレド' },
+	{ id: 'youtube_gallery', label: 'YouTubeギャラリー' },
+	{ id: 'illustration_gallery', label: 'イラストギャラリー' },
+	{ id: 'link_cards', label: 'リンクカード' },
+	{ id: 'reviews', label: '口コミ' },
+	{ id: 'pricing', label: '料金表' },
+	{ id: 'faq', label: 'FAQ' },
+];
 
 function renderSectionBody(
 	id: SectionId,
@@ -40,6 +40,8 @@ function renderSectionBody(
 	onNotify: ( message: string, variant: ToastVariant ) => void
 ) {
 	switch ( id ) {
+		case 'hero':
+			return <HeroSectionEditor form={ form } setForm={ setForm } />;
 		case 'about':
 			return <AboutRepeater form={ form } setForm={ setForm } />;
 		case 'youtube_gallery':
@@ -90,6 +92,7 @@ export function SettingsEditor() {
 	const [ loading, setLoading ] = useState( true );
 	const [ loadError, setLoadError ] = useState<string | null>( null );
 	const [ saving, setSaving ] = useState( false );
+	const [ activeTab, setActiveTab ] = useState<SettingsTabId>( 'basic' );
 	const [ updatedAt, setUpdatedAt ] = useState<string | null>( null );
 
 	const [ toast, setToast ] = useState<{
@@ -100,15 +103,6 @@ export function SettingsEditor() {
 	const notify = useCallback( ( message: string, variant: ToastVariant ) => {
 		setToast( { message, variant } );
 	}, [] );
-
-	const sensors = useSensors(
-		useSensor( PointerSensor, {
-			activationConstraint: { distance: 8 },
-		} ),
-		useSensor( KeyboardSensor, {
-			coordinateGetter: sortableKeyboardCoordinates,
-		} )
-	);
 
 	const load = useCallback( async () => {
 		if ( ! rest?.root || ! rest.nonce ) {
@@ -140,24 +134,6 @@ export function SettingsEditor() {
 	useEffect( () => {
 		void load();
 	}, [ load ] );
-
-	const onDragEnd = ( event: DragEndEvent ) => {
-		const { active, over } = event;
-		if ( ! over || active.id === over.id ) {
-			return;
-		}
-		setForm( ( prev ) => {
-			const oldIndex = prev.layout_order.indexOf( active.id as SectionId );
-			const newIndex = prev.layout_order.indexOf( over.id as SectionId );
-			if ( oldIndex === -1 || newIndex === -1 ) {
-				return prev;
-			}
-			return {
-				...prev,
-				layout_order: arrayMove( prev.layout_order, oldIndex, newIndex ),
-			};
-		} );
-	};
 
 	const onSave = async () => {
 		if ( ! rest?.root || ! rest.nonce || saving ) {
@@ -236,6 +212,8 @@ export function SettingsEditor() {
 	}
 
 	const restCtx = { root: rest.root, nonce: rest.nonce };
+	const activeTabLabel =
+		SETTINGS_TABS.find( ( tab ) => tab.id === activeTab )?.label ?? '基本設定';
 
 	return (
 		<div className="relative pb-24">
@@ -253,11 +231,7 @@ export function SettingsEditor() {
 						サイト表示マスター
 					</h1>
 					<p className="mt-1 text-sm text-slate-600">
-						基本設定は上部に固定。以下のカードは表示順（
-						<code className="rounded bg-slate-100 px-1 text-xs">
-							layout_order
-						</code>
-						）を DnD で変更できます。
+						左タブで設定カテゴリを切り替えて編集できます。
 					</p>
 				</div>
 				{ updatedLabel ? (
@@ -267,38 +241,41 @@ export function SettingsEditor() {
 				) }
 			</div>
 
-			<BasicSettingsCard form={ form } setForm={ setForm } />
-
-			<p className="mb-4 text-sm text-slate-600">
-				左の <span className="font-mono">⋮⋮</span> ハンドルでセクション全体の順序を変更します（口コミブロックの位置もここで制御）。
-			</p>
-
-			<DndContext
-				sensors={ sensors }
-				collisionDetection={ closestCenter }
-				onDragEnd={ onDragEnd }
-			>
-				<SortableContext
-					items={ form.layout_order }
-					strategy={ verticalListSortingStrategy }
-				>
-					{ form.layout_order.map( ( id ) => (
-						<SortableSectionCard
-							key={ id }
-							id={ id }
-							title={ SECTION_LABELS[ id ] }
-						>
-							{ renderSectionBody(
-								id,
-								form,
-								setForm,
-								restCtx,
-								notify
-							) }
-						</SortableSectionCard>
-					) ) }
-				</SortableContext>
-			</DndContext>
+			<div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
+				<aside className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm ring-1 ring-slate-900/5">
+					<nav aria-label="サイト設定カテゴリ" className="space-y-1">
+						{ SETTINGS_TABS.map( ( tab ) => {
+							const active = tab.id === activeTab;
+							return (
+								<button
+									key={ tab.id }
+									type="button"
+									className={ `w-full rounded-lg px-3 py-2 text-left text-sm transition ${
+										active
+											? 'bg-sky-50 font-medium text-sky-900 ring-1 ring-sky-200'
+											: 'text-slate-700 hover:bg-slate-50'
+									}` }
+									onClick={ () => setActiveTab( tab.id ) }
+								>
+									{ tab.label }
+								</button>
+							);
+						} ) }
+					</nav>
+				</aside>
+				<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-slate-900/5">
+					<h2 className="text-base font-semibold text-slate-900">
+						{ activeTabLabel }
+					</h2>
+					<div className="mt-4">
+						{ activeTab === 'basic' ? (
+							<BasicSettingsCard form={ form } setForm={ setForm } />
+						) : (
+							renderSectionBody( activeTab, form, setForm, restCtx, notify )
+						) }
+					</div>
+				</section>
+			</div>
 
 			<div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full border border-slate-200 bg-white/95 px-4 py-2 shadow-lg backdrop-blur">
 				<button

@@ -37,12 +37,12 @@ class Mebuki_PM_API {
 				array(
 					'methods'             => WP_REST_Server::READABLE,
 					'callback'            => array( __CLASS__, 'get_settings' ),
-					'permission_callback' => array( __CLASS__, 'check_permission' ),
+					'permission_callback' => array( __CLASS__, 'check_portfolio_permission' ),
 				),
 				array(
 					'methods'             => WP_REST_Server::CREATABLE,
 					'callback'            => array( __CLASS__, 'save_settings' ),
-					'permission_callback' => array( __CLASS__, 'check_permission' ),
+					'permission_callback' => array( __CLASS__, 'check_portfolio_permission' ),
 				),
 			)
 		);
@@ -73,7 +73,7 @@ class Mebuki_PM_API {
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( __CLASS__, 'list_orders_for_owner' ),
-				'permission_callback' => array( __CLASS__, 'check_permission' ),
+				'permission_callback' => array( __CLASS__, 'check_portfolio_permission' ),
 			)
 		);
 
@@ -83,7 +83,7 @@ class Mebuki_PM_API {
 			array(
 				'methods'             => 'PATCH',
 				'callback'            => array( __CLASS__, 'patch_order_status' ),
-				'permission_callback' => array( __CLASS__, 'check_permission' ),
+				'permission_callback' => array( __CLASS__, 'check_portfolio_permission' ),
 				'args'                => array(
 					'id' => array(
 						'required'          => true,
@@ -111,7 +111,7 @@ class Mebuki_PM_API {
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( __CLASS__, 'list_reviews_for_owner' ),
-				'permission_callback' => array( __CLASS__, 'check_permission' ),
+				'permission_callback' => array( __CLASS__, 'check_portfolio_permission' ),
 			)
 		);
 
@@ -139,7 +139,7 @@ class Mebuki_PM_API {
 			array(
 				'methods'             => 'PATCH',
 				'callback'            => array( __CLASS__, 'patch_review_visibility' ),
-				'permission_callback' => array( __CLASS__, 'check_permission' ),
+				'permission_callback' => array( __CLASS__, 'check_portfolio_permission' ),
 				'args'                => array(
 					'id' => array(
 						'required'          => true,
@@ -180,6 +180,45 @@ class Mebuki_PM_API {
 			);
 		}
 
+		$nonce_result = self::verify_rest_nonce( $request );
+		if ( is_wp_error( $nonce_result ) ) {
+			return $nonce_result;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Permission callback for portfolio owner operations.
+	 *
+	 * @param WP_REST_Request $request Request instance.
+	 * @return true|WP_Error
+	 */
+	public static function check_portfolio_permission( WP_REST_Request $request ) {
+		$allowed = current_user_can( 'manage_options' ) || current_user_can( 'mebuki_manage_portfolio' );
+		if ( ! $allowed ) {
+			return new WP_Error(
+				'mebuki_pm_forbidden',
+				__( 'You do not have permission to access this endpoint.', 'mebuki-portfolio-manager' ),
+				array( 'status' => rest_authorization_required_code() )
+			);
+		}
+
+		$nonce_result = self::verify_rest_nonce( $request );
+		if ( is_wp_error( $nonce_result ) ) {
+			return $nonce_result;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Verify X-WP-Nonce header when provided.
+	 *
+	 * @param WP_REST_Request $request Request instance.
+	 * @return true|WP_Error
+	 */
+	private static function verify_rest_nonce( WP_REST_Request $request ) {
 		$nonce = $request->get_header( 'X-WP-Nonce' );
 		if ( ! empty( $nonce ) && ! wp_verify_nonce( $nonce, 'wp_rest' ) ) {
 			return new WP_Error(
@@ -188,7 +227,6 @@ class Mebuki_PM_API {
 				array( 'status' => 403 )
 			);
 		}
-
 		return true;
 	}
 
@@ -606,6 +644,26 @@ class Mebuki_PM_API {
 	}
 
 	/**
+	 * Resolve public portfolio URL for the specified owner.
+	 *
+	 * @param int $user_id Portfolio owner user id.
+	 * @return string
+	 */
+	private static function get_portfolio_url_for_user( $user_id ) {
+		$user = get_userdata( (int) $user_id );
+		if ( ! $user instanceof WP_User ) {
+			return home_url( '/' );
+		}
+
+		$user_slug = sanitize_title( (string) $user->user_nicename );
+		if ( '' === $user_slug ) {
+			return home_url( '/' );
+		}
+
+		return home_url( '/' . Mebuki_PM_Frontend::BASE_PATH . '/' . $user_slug . '/' );
+	}
+
+	/**
 	 * Webhook signing secret (whsec_...) from saved settings option mirror.
 	 *
 	 * @param int $user_id Portfolio owner user id.
@@ -997,7 +1055,7 @@ class Mebuki_PM_API {
 
 		$order_id = (int) $row['id'];
 
-		$site_url = home_url( '/' );
+		$site_url = self::get_portfolio_url_for_user( $user_id );
 		$success_url = add_query_arg(
 			array(
 				'payment'    => 'success',
