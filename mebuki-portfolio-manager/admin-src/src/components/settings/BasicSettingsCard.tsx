@@ -1,5 +1,23 @@
+import {
+	closestCenter,
+	DndContext,
+	type DragEndEvent,
+	KeyboardSensor,
+	PointerSensor,
+	useSensor,
+	useSensors,
+} from '@dnd-kit/core';
+import {
+	arrayMove,
+	SortableContext,
+	sortableKeyboardCoordinates,
+	useSortable,
+	verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type { Dispatch, SetStateAction } from 'react';
-import type { MebukiFormState } from '../../types/settings';
+import { SECTION_LABELS } from '../../lib/mergeSettings';
+import type { MebukiFormState, SectionId } from '../../types/settings';
 import {
 	THEME_PRESET_LABELS,
 	THEME_PRESETS,
@@ -11,18 +29,78 @@ type Props = {
 	setForm: Dispatch<SetStateAction<MebukiFormState>>;
 };
 
+function SortableLayoutRow( { id }: { id: SectionId } ) {
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		transform,
+		transition,
+		isDragging,
+	} = useSortable( { id } );
+
+	return (
+		<div
+			ref={ setNodeRef }
+			style={ {
+				transform: CSS.Transform.toString( transform ),
+				transition,
+				opacity: isDragging ? 0.9 : 1,
+			} }
+			className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2"
+		>
+			<button
+				type="button"
+				className="inline-flex cursor-grab touch-none rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-slate-500 hover:bg-slate-100 active:cursor-grabbing"
+				{ ...listeners }
+				{ ...attributes }
+				aria-label="表示順を変更"
+			>
+				<span aria-hidden className="select-none text-base leading-none">
+					⋮⋮
+				</span>
+			</button>
+			<span className="text-sm text-slate-800">{ SECTION_LABELS[ id ] }</span>
+		</div>
+	);
+}
+
 export function BasicSettingsCard( { form, setForm }: Props ) {
 	const presetOptions = (
 		Object.keys( THEME_PRESET_LABELS ) as ThemePresetId[]
 	).map( ( id ) => ( { id, label: THEME_PRESET_LABELS[ id ] } ) );
+	const sensors = useSensors(
+		useSensor( PointerSensor, {
+			activationConstraint: { distance: 8 },
+		} ),
+		useSensor( KeyboardSensor, {
+			coordinateGetter: sortableKeyboardCoordinates,
+		} )
+	);
+
+	const onDragEnd = ( event: DragEndEvent ) => {
+		const { active, over } = event;
+		if ( ! over || active.id === over.id ) {
+			return;
+		}
+		setForm( ( prev ) => {
+			const oldIndex = prev.layout_order.indexOf( active.id as SectionId );
+			const newIndex = prev.layout_order.indexOf( over.id as SectionId );
+			if ( oldIndex === -1 || newIndex === -1 ) {
+				return prev;
+			}
+			return {
+				...prev,
+				layout_order: arrayMove( prev.layout_order, oldIndex, newIndex ),
+			};
+		} );
+	};
 
 	return (
-		<div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-slate-900/5">
-			<h2 className="text-base font-semibold text-slate-900">基本設定</h2>
-			<p className="mt-1 text-xs text-slate-500">
-				Stripe・通知メール・テーマプリセット（レイアウト DnD の外で固定表示）
+		<div>
+			<p className="text-xs text-slate-500">
+				Stripe・通知メール・テーマプリセットを設定できます。
 			</p>
-
 			<div className="mt-4 grid gap-4 md:grid-cols-2">
 				<div className="md:col-span-2">
 					<label className="mb-1 block text-xs font-medium text-slate-600">
@@ -130,6 +208,31 @@ export function BasicSettingsCard( { form, setForm }: Props ) {
 						}
 						placeholder="admin@example.com"
 					/>
+				</div>
+
+				<div className="md:col-span-2">
+					<label className="mb-1 block text-xs font-medium text-slate-600">
+						セクション表示順（layout_order）
+					</label>
+					<p className="mb-2 text-xs text-slate-500">
+						下のセクション名をドラッグして、公開ページの表示順を変更できます。
+					</p>
+					<DndContext
+						sensors={ sensors }
+						collisionDetection={ closestCenter }
+						onDragEnd={ onDragEnd }
+					>
+						<SortableContext
+							items={ form.layout_order }
+							strategy={ verticalListSortingStrategy }
+						>
+							<div className="space-y-2">
+								{ form.layout_order.map( ( sectionId ) => (
+									<SortableLayoutRow key={ sectionId } id={ sectionId } />
+								) ) }
+							</div>
+						</SortableContext>
+					</DndContext>
 				</div>
 			</div>
 		</div>
