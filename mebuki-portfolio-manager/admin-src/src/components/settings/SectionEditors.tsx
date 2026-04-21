@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import type { MebukiFormState } from '../../types/settings';
+import type { HeroOverlayImageAlign, MebukiFormState } from '../../types/settings';
 import { newLocalId } from '../../lib/mergeSettings';
 import { MediaPickerButton } from '../MediaPickerButton';
 
@@ -63,6 +63,51 @@ export function HeroSectionEditor( { form, setForm }: Props ) {
 					}
 					placeholder="cover_image_url（手入力可）"
 				/>
+			</div>
+			<div>
+				<label className="mb-1 block text-xs text-slate-600">
+					重ね画像（ロゴ・キャラなど）
+				</label>
+				<p className="mb-2 text-xs text-slate-500">
+					カバー画像の上に別レイヤーで表示します。カバーとは独立して設定できます。
+				</p>
+				<MediaPickerButton
+					value={ form.hero.overlay_image_url }
+					onChange={ ( url ) =>
+						setForm( ( f ) => ( {
+							...f,
+							hero: { ...f.hero, overlay_image_url: url },
+						} ) )
+					}
+				/>
+				<input
+					type="url"
+					className="mt-2 w-full rounded-md border border-slate-200 px-2 py-1.5 font-mono text-xs focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+					value={ form.hero.overlay_image_url }
+					onChange={ ( e ) =>
+						setForm( ( f ) => ( {
+							...f,
+							hero: { ...f.hero, overlay_image_url: e.target.value },
+						} ) )
+					}
+					placeholder="overlay_image_url（手入力可）"
+				/>
+				<label className="mb-1 mt-3 block text-xs text-slate-600">重ね画像の位置</label>
+				<select
+					className="w-full max-w-xs rounded-md border border-slate-200 px-2 py-1.5 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+					value={ form.hero.overlay_image_align }
+					onChange={ ( e ) => {
+						const v = e.target.value as HeroOverlayImageAlign;
+						setForm( ( f ) => ( {
+							...f,
+							hero: { ...f.hero, overlay_image_align: v },
+						} ) );
+					} }
+				>
+					<option value="center">中央</option>
+					<option value="left">左寄せ</option>
+					<option value="right">右寄せ</option>
+				</select>
 			</div>
 		</div>
 	);

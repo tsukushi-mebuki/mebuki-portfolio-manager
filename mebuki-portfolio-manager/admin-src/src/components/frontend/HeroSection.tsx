@@ -5,10 +5,24 @@ type Props = {
 	hero: HeroConfig;
 };
 
+const overlayAlignClass: Record<
+	NonNullable< HeroConfig['overlay_image_align'] >,
+	string
+> = {
+	left: 'justify-start',
+	center: 'justify-center',
+	right: 'justify-end',
+};
+
 export function HeroSection( { siteName, hero }: Props ) {
-	const title = hero?.title?.trim() || siteName || 'Portfolio';
+	void siteName;
+	const title = hero?.title?.trim() || '';
 	const subtitle = hero?.subtitle?.trim() || '';
 	const cover = hero?.cover_image_url?.trim() || '';
+	const overlay = hero?.overlay_image_url?.trim() || '';
+	const align = hero?.overlay_image_align ?? 'center';
+	const overlayJustify = overlayAlignClass[ align ] ?? overlayAlignClass.center;
+	const hasOverlay = overlay !== '';
 
 	return (
 		<section
@@ -33,18 +47,50 @@ export function HeroSection( { siteName, hero }: Props ) {
 					aria-hidden
 				/>
 			) }
-			<div className="relative mx-auto flex min-h-[min(52vh,28rem)] max-w-5xl flex-col justify-end gap-3 px-4 pb-14 pt-24 sm:px-6 lg:px-8">
-				<h1
-					className="font-[family-name:var(--mebuki-font-heading)] text-3xl font-bold tracking-tight text-[var(--mebuki-text)] sm:text-4xl md:text-5xl"
-					style={ { textShadow: '0 2px 24px color-mix(in srgb, var(--mebuki-bg) 80%, transparent)' } }
-				>
-					{ title }
-				</h1>
-				{ subtitle !== '' ? (
-					<p className="max-w-2xl text-base leading-relaxed text-[var(--mebuki-text-muted)] sm:text-lg">
-						{ subtitle }
-					</p>
+			<div
+				className={ [
+					'relative mx-auto flex min-h-[min(52vh,28rem)] max-w-5xl flex-col gap-3 px-4 pb-14 pt-24 sm:px-6 lg:px-8',
+					hasOverlay ? 'justify-between' : 'justify-end',
+				].join( ' ' ) }
+			>
+				{ hasOverlay ? (
+					<div
+						className={ [
+							'flex w-full shrink-0',
+							overlayJustify,
+						].join( ' ' ) }
+					>
+						<img
+							src={ overlay }
+							alt=""
+							className="max-h-36 w-auto max-w-full object-contain drop-shadow-[0_4px_24px_color-mix(in_srgb,var(--mebuki-bg)_70%,transparent)] sm:max-h-44"
+						/>
+					</div>
 				) : null }
+				<div
+					className={
+						hasOverlay
+							? 'flex flex-col gap-3'
+							: 'mt-auto flex flex-col gap-3'
+					}
+				>
+					{ title !== '' ? (
+						<h1
+							className="font-[family-name:var(--mebuki-font-heading)] text-3xl font-bold tracking-tight text-[var(--mebuki-text)] sm:text-4xl md:text-5xl"
+							style={ {
+								textShadow:
+									'0 2px 24px color-mix(in srgb, var(--mebuki-bg) 80%, transparent)',
+							} }
+						>
+							{ title }
+						</h1>
+					) : null }
+					{ subtitle !== '' ? (
+						<p className="max-w-2xl text-base leading-relaxed text-[var(--mebuki-text-muted)] sm:text-lg">
+							{ subtitle }
+						</p>
+					) : null }
+				</div>
 			</div>
 		</section>
 	);

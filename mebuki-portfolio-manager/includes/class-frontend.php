@@ -35,6 +35,24 @@ class Mebuki_PM_Frontend {
 	}
 
 	/**
+	 * Front-end dashboard URL for a user (pretty permalink: /portfolio/{nicename}/dashboard/).
+	 *
+	 * @param int $user_id User ID.
+	 * @return string
+	 */
+	public static function get_dashboard_url_for_user( $user_id ) {
+		$user = get_userdata( (int) $user_id );
+		if ( ! $user instanceof WP_User ) {
+			return home_url( '/' );
+		}
+		$slug = sanitize_title( (string) $user->user_nicename );
+		if ( '' === $slug ) {
+			return home_url( '/' );
+		}
+		return home_url( '/' . self::BASE_PATH . '/' . $slug . '/' . self::MODE_DASHBOARD . '/' );
+	}
+
+	/**
 	 * Register frontend rewrite rules.
 	 *
 	 * @return void
@@ -200,6 +218,19 @@ class Mebuki_PM_Frontend {
 			return;
 		}
 
+		$owner_ctx    = self::get_portfolio_owner_context();
+		$owner_id     = $owner_ctx['user_id'];
+		$can_manage   = self::can_manage_portfolio( $owner_id );
+		if ( $can_manage ) {
+			wp_enqueue_script( 'jquery' );
+			wp_enqueue_media();
+			wp_add_inline_script(
+				'jquery',
+				'var ajaxurl = ' . wp_json_encode( admin_url( 'admin-ajax.php' ) ) . ';',
+				'before'
+			);
+		}
+
 		$base_url = plugin_dir_url( MEBUKI_PM_FILE );
 		$ver_js   = (string) filemtime( $script_fs );
 		$ver_css  = is_readable( $style_fs ) ? (string) filemtime( $style_fs ) : $ver_js;
@@ -235,6 +266,10 @@ class Mebuki_PM_Frontend {
 			$deps[] = Mebuki_PM_Admin::SETTINGS_CHUNK_HANDLE;
 		}
 
+		if ( $can_manage ) {
+			$deps[] = 'media-editor';
+		}
+
 		wp_enqueue_script(
 			self::SCRIPT_HANDLE,
 			$base_url . $script_rel,
@@ -243,11 +278,8 @@ class Mebuki_PM_Frontend {
 			true
 		);
 
-		$owner_ctx = self::get_portfolio_owner_context();
-		$owner_id       = $owner_ctx['user_id'];
 		$owner_slug     = $owner_ctx['user_slug'];
 		$portfolio_mode = self::get_portfolio_mode();
-		$can_manage     = self::can_manage_portfolio( $owner_id );
 		$portfolio_path = '' !== $owner_slug
 			? home_url( '/' . self::BASE_PATH . '/' . $owner_slug . '/' )
 			: home_url( '/' );

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import type { GalleryCategory, GalleryReviewItem } from '../../types/settings';
 import type { ReviewRow } from '../../types/settings';
 import { youtubeEmbedSrc, youtubeThumbUrl } from '../../frontend/youtube';
-import { ReviewWriteButton } from './ReviewWriteButton';
 import { ItemReviewsBlock } from './ItemReviewsBlock';
 
 type Props = {
@@ -10,7 +9,6 @@ type Props = {
 	items: GalleryReviewItem[];
 	displayMode: 'tab' | 'category_sections';
 	itemsPerPage: number;
-	siteUrl: string;
 	publishedReviews: ReviewRow[];
 	showReviewsUnderItems: boolean;
 	reviewFallbackIconUrl: string;
@@ -29,7 +27,6 @@ export function YouTubeGallery( {
 	items,
 	displayMode,
 	itemsPerPage,
-	siteUrl,
 	publishedReviews,
 	showReviewsUnderItems,
 	reviewFallbackIconUrl,
@@ -145,13 +142,6 @@ export function YouTubeGallery( {
 							{ row.title }
 						</h3>
 					) : null }
-					<div className="mt-auto flex flex-wrap items-center justify-end gap-2">
-						<ReviewWriteButton
-							siteUrl={ siteUrl }
-							itemType="youtube"
-							itemId={ row.item_id }
-						/>
-					</div>
 					<ItemReviewsBlock
 						reviews={ itemReviews }
 						fallbackIconUrl={ reviewFallbackIconUrl }
