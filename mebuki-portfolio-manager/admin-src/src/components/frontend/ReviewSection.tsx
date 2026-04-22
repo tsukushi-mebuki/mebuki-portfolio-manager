@@ -1,3 +1,4 @@
+import { compareReviewsByDisplayOrder } from '../../lib/reviewSort';
 import type { ReviewRow } from '../../types/settings';
 
 type Props = {
@@ -21,6 +22,8 @@ export function ReviewSection( { reviews, fallbackIconUrl }: Props ) {
 		return null;
 	}
 
+	const ordered = [ ...reviews ].sort( compareReviewsByDisplayOrder );
+
 	return (
 		<section
 			className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8"
@@ -33,7 +36,7 @@ export function ReviewSection( { reviews, fallbackIconUrl }: Props ) {
 				Reviews
 			</h2>
 			<ul className="space-y-4">
-				{ reviews.map( ( row ) => (
+				{ ordered.map( ( row ) => (
 					<li
 						key={ row.id }
 						className="rounded-[var(--mebuki-radius)] border border-[color-mix(in_srgb,var(--mebuki-text)_10%,transparent)] bg-[var(--mebuki-surface)] p-5 shadow-sm"

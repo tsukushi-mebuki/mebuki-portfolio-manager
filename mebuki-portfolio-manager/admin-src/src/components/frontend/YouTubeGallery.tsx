@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { GalleryCategory, GalleryReviewItem } from '../../types/settings';
 import type { ReviewRow } from '../../types/settings';
 import { youtubeEmbedSrc, youtubeThumbUrl } from '../../frontend/youtube';
-import { ReviewWriteButton } from './ReviewWriteButton';
+import { compareReviewsByDisplayOrder } from '../../lib/reviewSort';
 import { ItemReviewsBlock } from './ItemReviewsBlock';
 
 type Props = {
@@ -10,26 +10,16 @@ type Props = {
 	items: GalleryReviewItem[];
 	displayMode: 'tab' | 'category_sections';
 	itemsPerPage: number;
-	siteUrl: string;
 	publishedReviews: ReviewRow[];
 	showReviewsUnderItems: boolean;
 	reviewFallbackIconUrl: string;
 };
-
-function toEpochMs( v: string | null ): number {
-	if ( ! v ) {
-		return 0;
-	}
-	const t = Date.parse( v );
-	return Number.isNaN( t ) ? 0 : t;
-}
 
 export function YouTubeGallery( {
 	categories,
 	items,
 	displayMode,
 	itemsPerPage,
-	siteUrl,
 	publishedReviews,
 	showReviewsUnderItems,
 	reviewFallbackIconUrl,
@@ -102,7 +92,7 @@ export function YouTubeGallery( {
 					.filter(
 						( r ) => r.item_type === 'youtube' && r.item_id === row.item_id
 					)
-					.sort( ( a, b ) => toEpochMs( a.created_at ) - toEpochMs( b.created_at ) )
+					.sort( compareReviewsByDisplayOrder )
 					.slice( 0, 3 )
 			: [];
 		return (
@@ -145,13 +135,6 @@ export function YouTubeGallery( {
 							{ row.title }
 						</h3>
 					) : null }
-					<div className="mt-auto flex flex-wrap items-center justify-end gap-2">
-						<ReviewWriteButton
-							siteUrl={ siteUrl }
-							itemType="youtube"
-							itemId={ row.item_id }
-						/>
-					</div>
 					<ItemReviewsBlock
 						reviews={ itemReviews }
 						fallbackIconUrl={ reviewFallbackIconUrl }

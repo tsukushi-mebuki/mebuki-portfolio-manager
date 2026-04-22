@@ -28,20 +28,45 @@ function parseErrorMessage( raw: string, status: number ): string {
 	return `HTTP ${ status }`;
 }
 
+export type PostPublicReviewOptions = {
+	reviewerAvatarFile?: File | null;
+};
+
 export async function postPublicReview(
 	restRoot: string,
-	body: CreatePublicReviewBody
+	body: CreatePublicReviewBody,
+	options?: PostPublicReviewOptions
 ): Promise<CreatePublicReviewResult> {
 	const url = joinRestPath( restRoot, 'mebuki-pm/v1/reviews' );
-	const res = await fetch( url, {
-		method: 'POST',
-		credentials: 'same-origin',
-		headers: {
-			'Content-Type': 'application/json',
-			Accept: 'application/json',
-		},
-		body: JSON.stringify( body ),
-	} );
+	const avatar = options?.reviewerAvatarFile ?? null;
+	let res: Response;
+	if ( avatar ) {
+		const fd = new FormData();
+		fd.append( 'user_slug', body.user_slug );
+		fd.append( 'item_type', body.item_type );
+		fd.append( 'item_id', body.item_id );
+		fd.append( 'reviewer_name', body.reviewer_name );
+		fd.append( 'review_text', body.review_text );
+		fd.append( 'reviewer_avatar', avatar );
+		res = await fetch( url, {
+			method: 'POST',
+			credentials: 'same-origin',
+			headers: {
+				Accept: 'application/json',
+			},
+			body: fd,
+		} );
+	} else {
+		res = await fetch( url, {
+			method: 'POST',
+			credentials: 'same-origin',
+			headers: {
+				'Content-Type': 'application/json',
+				Accept: 'application/json',
+			},
+			body: JSON.stringify( body ),
+		} );
+	}
 
 	const raw = await res.text();
 	let data: unknown = null;
