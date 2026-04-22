@@ -120,6 +120,7 @@ export interface ReviewRow {
 	reviewer_thumbnail_url: string;
 	review_text: string;
 	status: string;
+	sort_order: number;
 	created_at: string | null;
 	updated_at: string | null;
 }

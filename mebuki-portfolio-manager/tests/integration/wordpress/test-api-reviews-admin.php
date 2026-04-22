@@ -87,4 +87,68 @@ class Test_API_Reviews_Admin extends WP_UnitTestCase {
 		$this->assertTrue( $data['success'] );
 		$this->assertSame( 'published', $data['review']['status'] );
 	}
+
+	/**
+	 * @return void
+	 */
+	public function test_admin_delete_review() {
+		$rid = $this->insert_review_for_admin( 'pending' );
+
+		$request = new WP_REST_Request( 'DELETE', '/mebuki-pm/v1/reviews/' . $rid );
+		$response = rest_do_request( $request );
+
+		$this->assertSame( 200, $response->get_status() );
+		$data = $response->get_data();
+		$this->assertTrue( $data['success'] );
+		$this->assertSame( $rid, (int) $data['id'] );
+
+		global $wpdb;
+		$table = $wpdb->prefix . 'mebuki_pm_reviews';
+		$still = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$table} WHERE id = %d",
+				$rid
+			)
+		);
+		$this->assertSame( 0, (int) $still );
+	}
+
+	/**
+	 * @return void
+	 */
+	public function test_admin_reorder_reviews() {
+		$r1 = $this->insert_review_for_admin( 'pending' );
+		$r2 = $this->insert_review_for_admin( 'pending' );
+
+		$request = new WP_REST_Request( 'POST', '/mebuki-pm/v1/reviews/reorder' );
+		$request->set_header( 'Content-Type', 'application/json' );
+		$request->set_body( wp_json_encode( array( 'order' => array( $r2, $r1 ) ) ) );
+		$response = rest_do_request( $request );
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertTrue( $response->get_data()['success'] );
+
+		$list_request  = new WP_REST_Request( 'GET', '/mebuki-pm/v1/reviews/me' );
+		$list_response = rest_do_request( $list_request );
+		$this->assertSame( 200, $list_response->get_status() );
+		$data = $list_response->get_data();
+		$this->assertCount( 2, $data['reviews'] );
+		$this->assertSame( $r2, (int) $data['reviews'][0]['id'] );
+		$this->assertSame( $r1, (int) $data['reviews'][1]['id'] );
+	}
+
+	/**
+	 * @return void
+	 */
+	public function test_admin_reorder_reviews_rejects_incomplete_id_list() {
+		$r1 = $this->insert_review_for_admin( 'pending' );
+		$r2 = $this->insert_review_for_admin( 'pending' );
+
+		$request = new WP_REST_Request( 'POST', '/mebuki-pm/v1/reviews/reorder' );
+		$request->set_header( 'Content-Type', 'application/json' );
+		$request->set_body( wp_json_encode( array( 'order' => array( $r1 ) ) ) );
+		$response = rest_do_request( $request );
+
+		$this->assertSame( 400, $response->get_status() );
+	}
 }

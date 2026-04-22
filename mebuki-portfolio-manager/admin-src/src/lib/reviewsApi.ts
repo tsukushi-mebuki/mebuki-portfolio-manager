@@ -71,3 +71,43 @@ export async function patchReviewVisibility(
 	}
 	return data.review;
 }
+
+export async function deleteReview(
+	root: string,
+	nonce: string,
+	reviewId: number
+): Promise<void> {
+	const res = await fetch( reviewItemUrl( root, reviewId ), {
+		method: 'DELETE',
+		credentials: 'same-origin',
+		headers: {
+			Accept: 'application/json',
+			'X-WP-Nonce': nonce,
+		},
+	} );
+	if ( ! res.ok ) {
+		throw new Error( await readErrorMessage( res ) );
+	}
+}
+
+export async function reorderReviews(
+	root: string,
+	nonce: string,
+	orderedIds: number[]
+): Promise<void> {
+	const base = root.endsWith( '/' ) ? root : `${ root }/`;
+	const url = `${ base }mebuki-pm/v1/reviews/reorder`;
+	const res = await fetch( url, {
+		method: 'POST',
+		credentials: 'same-origin',
+		headers: {
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
+			'X-WP-Nonce': nonce,
+		},
+		body: JSON.stringify( { order: orderedIds } ),
+	} );
+	if ( ! res.ok ) {
+		throw new Error( await readErrorMessage( res ) );
+	}
+}

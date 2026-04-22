@@ -307,4 +307,56 @@ class Test_API_Public_Tenant_Hardening extends WP_UnitTestCase {
 		);
 		$this->assertSame( 'payment_pending', $status_after );
 	}
+
+	/**
+	 * @return void
+	 */
+	public function test_public_review_multipart_avatar_stores_url() {
+		$png     = base64_decode( 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', true );
+		$tmp     = wp_tempnam( 'mebuki_review_avatar' );
+		$written = file_put_contents( $tmp, $png );
+		$this->assertNotFalse( $tmp );
+		$this->assertNotFalse( $written );
+
+		$request = new WP_REST_Request( 'POST', '/mebuki-pm/v1/reviews' );
+		$request->set_body_params(
+			array(
+				'user_slug'     => $this->slug_a,
+				'item_type'     => 'youtube',
+				'item_id'       => 'vid-avatar-1',
+				'reviewer_name' => 'Tester',
+				'review_text'   => 'Great!',
+			)
+		);
+
+		$refl = new ReflectionClass( $request );
+		$prop = $refl->getProperty( 'file_params' );
+		$prop->setAccessible( true );
+		$prop->setValue(
+			$request,
+			array(
+				'reviewer_avatar' => array(
+					'name'     => 'avatar.png',
+					'type'     => 'image/png',
+					'tmp_name' => $tmp,
+					'error'    => 0,
+					'size'     => (int) filesize( $tmp ),
+				),
+			)
+		);
+
+		$response = rest_do_request( $request );
+
+		if ( file_exists( $tmp ) ) {
+			unlink( $tmp );
+		}
+
+		$this->assertSame( 200, $response->get_status(), wp_json_encode( $response->get_data() ) );
+		$data = $response->get_data();
+		$this->assertIsArray( $data );
+		$this->assertArrayHasKey( 'review', $data );
+		$url = isset( $data['review']['reviewer_thumbnail_url'] ) ? (string) $data['review']['reviewer_thumbnail_url'] : '';
+		$this->assertNotSame( '', $url );
+		$this->assertStringContainsString( 'mebuki-pm/reviewer-avatars/' . $this->user_a, $url );
+	}
 }

@@ -37,12 +37,12 @@ class Mebuki_PM_API {
 				array(
 					'methods'             => WP_REST_Server::READABLE,
 					'callback'            => array( __CLASS__, 'get_settings' ),
-					'permission_callback' => array( __CLASS__, 'check_permission' ),
+					'permission_callback' => array( __CLASS__, 'check_portfolio_permission' ),
 				),
 				array(
 					'methods'             => WP_REST_Server::CREATABLE,
 					'callback'            => array( __CLASS__, 'save_settings' ),
-					'permission_callback' => array( __CLASS__, 'check_permission' ),
+					'permission_callback' => array( __CLASS__, 'check_portfolio_permission' ),
 				),
 			)
 		);
@@ -73,7 +73,7 @@ class Mebuki_PM_API {
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( __CLASS__, 'list_orders_for_owner' ),
-				'permission_callback' => array( __CLASS__, 'check_permission' ),
+				'permission_callback' => array( __CLASS__, 'check_portfolio_permission' ),
 			)
 		);
 
@@ -83,7 +83,7 @@ class Mebuki_PM_API {
 			array(
 				'methods'             => 'PATCH',
 				'callback'            => array( __CLASS__, 'patch_order_status' ),
-				'permission_callback' => array( __CLASS__, 'check_permission' ),
+				'permission_callback' => array( __CLASS__, 'check_portfolio_permission' ),
 				'args'                => array(
 					'id' => array(
 						'required'          => true,
@@ -111,7 +111,17 @@ class Mebuki_PM_API {
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( __CLASS__, 'list_reviews_for_owner' ),
-				'permission_callback' => array( __CLASS__, 'check_permission' ),
+				'permission_callback' => array( __CLASS__, 'check_portfolio_permission' ),
+			)
+		);
+
+		register_rest_route(
+			'mebuki-pm/v1',
+			'/reviews/reorder',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'reorder_reviews' ),
+				'permission_callback' => array( __CLASS__, 'check_portfolio_permission' ),
 			)
 		);
 
@@ -137,15 +147,30 @@ class Mebuki_PM_API {
 			'mebuki-pm/v1',
 			'/reviews/(?P<id>[\d]+)',
 			array(
-				'methods'             => 'PATCH',
-				'callback'            => array( __CLASS__, 'patch_review_visibility' ),
-				'permission_callback' => array( __CLASS__, 'check_permission' ),
-				'args'                => array(
-					'id' => array(
-						'required'          => true,
-						'validate_callback' => static function ( $v ) {
-							return is_numeric( $v ) && (int) $v > 0;
-						},
+				array(
+					'methods'             => 'PATCH',
+					'callback'            => array( __CLASS__, 'patch_review_visibility' ),
+					'permission_callback' => array( __CLASS__, 'check_portfolio_permission' ),
+					'args'                => array(
+						'id' => array(
+							'required'          => true,
+							'validate_callback' => static function ( $v ) {
+								return is_numeric( $v ) && (int) $v > 0;
+							},
+						),
+					),
+				),
+				array(
+					'methods'             => WP_REST_Server::DELETABLE,
+					'callback'            => array( __CLASS__, 'delete_review' ),
+					'permission_callback' => array( __CLASS__, 'check_portfolio_permission' ),
+					'args'                => array(
+						'id' => array(
+							'required'          => true,
+							'validate_callback' => static function ( $v ) {
+								return is_numeric( $v ) && (int) $v > 0;
+							},
+						),
 					),
 				),
 			)
@@ -180,6 +205,45 @@ class Mebuki_PM_API {
 			);
 		}
 
+		$nonce_result = self::verify_rest_nonce( $request );
+		if ( is_wp_error( $nonce_result ) ) {
+			return $nonce_result;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Permission callback for portfolio owner operations.
+	 *
+	 * @param WP_REST_Request $request Request instance.
+	 * @return true|WP_Error
+	 */
+	public static function check_portfolio_permission( WP_REST_Request $request ) {
+		$allowed = current_user_can( 'manage_options' ) || current_user_can( 'mebuki_manage_portfolio' );
+		if ( ! $allowed ) {
+			return new WP_Error(
+				'mebuki_pm_forbidden',
+				__( 'You do not have permission to access this endpoint.', 'mebuki-portfolio-manager' ),
+				array( 'status' => rest_authorization_required_code() )
+			);
+		}
+
+		$nonce_result = self::verify_rest_nonce( $request );
+		if ( is_wp_error( $nonce_result ) ) {
+			return $nonce_result;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Verify X-WP-Nonce header when provided.
+	 *
+	 * @param WP_REST_Request $request Request instance.
+	 * @return true|WP_Error
+	 */
+	private static function verify_rest_nonce( WP_REST_Request $request ) {
 		$nonce = $request->get_header( 'X-WP-Nonce' );
 		if ( ! empty( $nonce ) && ! wp_verify_nonce( $nonce, 'wp_rest' ) ) {
 			return new WP_Error(
@@ -188,7 +252,6 @@ class Mebuki_PM_API {
 				array( 'status' => 403 )
 			);
 		}
-
 		return true;
 	}
 
@@ -606,6 +669,26 @@ class Mebuki_PM_API {
 	}
 
 	/**
+	 * Resolve public portfolio URL for the specified owner.
+	 *
+	 * @param int $user_id Portfolio owner user id.
+	 * @return string
+	 */
+	private static function get_portfolio_url_for_user( $user_id ) {
+		$user = get_userdata( (int) $user_id );
+		if ( ! $user instanceof WP_User ) {
+			return home_url( '/' );
+		}
+
+		$user_slug = sanitize_title( (string) $user->user_nicename );
+		if ( '' === $user_slug ) {
+			return home_url( '/' );
+		}
+
+		return home_url( '/' . Mebuki_PM_Frontend::BASE_PATH . '/' . $user_slug . '/' );
+	}
+
+	/**
 	 * Webhook signing secret (whsec_...) from saved settings option mirror.
 	 *
 	 * @param int $user_id Portfolio owner user id.
@@ -997,7 +1080,7 @@ class Mebuki_PM_API {
 
 		$order_id = (int) $row['id'];
 
-		$site_url = home_url( '/' );
+		$site_url = self::get_portfolio_url_for_user( $user_id );
 		$success_url = add_query_arg(
 			array(
 				'payment'    => 'success',
@@ -1177,6 +1260,114 @@ class Mebuki_PM_API {
 	}
 
 	/**
+	 * Save a reviewer avatar for public review submission (multipart).
+	 *
+	 * Uses sideload so CLI/tests can supply temp files without is_uploaded_file().
+	 *
+	 * @param array $file            REST file entry (name, type, tmp_name, error, size).
+	 * @param int   $owner_user_id   Portfolio owner id (upload path namespace).
+	 * @return string|WP_Error       Escaped URL or error.
+	 */
+	private static function sideload_public_reviewer_avatar( array $file, $owner_user_id ) {
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+
+		$err = isset( $file['error'] ) ? (int) $file['error'] : UPLOAD_ERR_OK;
+		if ( UPLOAD_ERR_OK !== $err ) {
+			return new WP_Error(
+				'mebuki_pm_review_avatar_upload_err',
+				__( 'Image upload failed.', 'mebuki-portfolio-manager' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$tmp = isset( $file['tmp_name'] ) ? (string) $file['tmp_name'] : '';
+		if ( '' === $tmp || ! file_exists( $tmp ) ) {
+			return new WP_Error(
+				'mebuki_pm_review_avatar_missing',
+				__( 'Invalid image file.', 'mebuki-portfolio-manager' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$size = isset( $file['size'] ) ? (int) $file['size'] : 0;
+		$max  = 2 * MB_IN_BYTES;
+		if ( $size <= 0 || $size > $max ) {
+			return new WP_Error(
+				'mebuki_pm_review_avatar_too_large',
+				__( 'Image must be 2MB or smaller.', 'mebuki-portfolio-manager' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$name     = isset( $file['name'] ) ? (string) $file['name'] : 'avatar.bin';
+		$filetype = wp_check_filetype_and_ext( $tmp, $name );
+		$ext      = isset( $filetype['ext'] ) ? strtolower( (string) $filetype['ext'] ) : '';
+		$type     = isset( $filetype['type'] ) ? (string) $filetype['type'] : '';
+		$allowed  = array( 'jpg', 'jpeg', 'png', 'gif', 'webp' );
+		if ( '' === $ext || ! in_array( $ext, $allowed, true ) || ! preg_match( '#^image/#', $type ) ) {
+			return new WP_Error(
+				'mebuki_pm_review_avatar_type',
+				__( 'Use JPG, PNG, GIF, or WebP.', 'mebuki-portfolio-manager' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$subdir_filter = static function ( $dirs ) use ( $owner_user_id ) {
+			$subdir         = '/mebuki-pm/reviewer-avatars/' . absint( $owner_user_id );
+			$dirs['subdir'] = $subdir;
+			$dirs['path']   = $dirs['basedir'] . $subdir;
+			$dirs['url']    = $dirs['baseurl'] . $subdir;
+			return $dirs;
+		};
+		add_filter( 'upload_dir', $subdir_filter );
+
+		$file_array = array(
+			'name'     => sanitize_file_name( $name ),
+			'type'     => $type,
+			'tmp_name' => $tmp,
+			'error'    => 0,
+			'size'     => $size,
+		);
+
+		$overrides = array(
+			'test_form' => false,
+			'mimes'     => array(
+				'jpg|jpeg|jpe' => 'image/jpeg',
+				'gif'          => 'image/gif',
+				'png'          => 'image/png',
+				'webp'         => 'image/webp',
+			),
+		);
+
+		$move = wp_handle_sideload( $file_array, $overrides );
+
+		remove_filter( 'upload_dir', $subdir_filter );
+
+		if ( isset( $move['error'] ) ) {
+			$msg = is_string( $move['error'] ) ? $move['error'] : __( 'Could not save image.', 'mebuki-portfolio-manager' );
+			return new WP_Error(
+				'mebuki_pm_review_avatar_sideload',
+				$msg,
+				array( 'status' => 400 )
+			);
+		}
+
+		$url = isset( $move['url'] ) ? esc_url_raw( (string) $move['url'] ) : '';
+		if ( '' === $url || strlen( $url ) > 500 ) {
+			if ( isset( $move['file'] ) && is_string( $move['file'] ) && file_exists( $move['file'] ) ) {
+				wp_delete_file( $move['file'] );
+			}
+			return new WP_Error(
+				'mebuki_pm_review_avatar_url',
+				__( 'Could not save image.', 'mebuki-portfolio-manager' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		return $url;
+	}
+
+	/**
 	 * POST /reviews
 	 *
 	 * Public endpoint for review submission.
@@ -1209,6 +1400,22 @@ class Mebuki_PM_API {
 			);
 		}
 
+		$files = $request->get_file_params();
+		if ( ! empty( $files['reviewer_avatar'] ) && is_array( $files['reviewer_avatar'] ) ) {
+			$uploaded = self::sideload_public_reviewer_avatar( $files['reviewer_avatar'], $user_id );
+			if ( is_wp_error( $uploaded ) ) {
+				return $uploaded;
+			}
+			$reviewer_thumbnail_url = $uploaded;
+		}
+
+		$next_sort = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COALESCE(MAX(sort_order), -1) + 1 FROM {$table_name} WHERE user_id = %d",
+				$user_id
+			)
+		);
+
 		$inserted = $wpdb->insert(
 			$table_name,
 			array(
@@ -1219,8 +1426,9 @@ class Mebuki_PM_API {
 				'reviewer_thumbnail_url' => $reviewer_thumbnail_url,
 				'review_text'            => $review_text,
 				'status'                 => 'pending',
+				'sort_order'             => $next_sort,
 			),
-			array( '%d', '%s', '%s', '%s', '%s', '%s', '%s' )
+			array( '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d' )
 		);
 
 		if ( false === $inserted ) {
@@ -1242,7 +1450,111 @@ class Mebuki_PM_API {
 		return rest_ensure_response(
 			array(
 				'success' => true,
-				'review'  => $created,
+				'review'  => self::normalize_review_row( $created ),
+			)
+		);
+	}
+
+	/**
+	 * POST /reviews/reorder — set display order for all of the current user's reviews.
+	 *
+	 * @param WP_REST_Request $request Request instance.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function reorder_reviews( WP_REST_Request $request ) {
+		global $wpdb;
+
+		$table_name = $wpdb->prefix . 'mebuki_pm_reviews';
+		$owner_id   = get_current_user_id();
+
+		$params = $request->get_json_params();
+		if ( null === $params ) {
+			$params = $request->get_params();
+		}
+
+		$order = isset( $params['order'] ) && is_array( $params['order'] ) ? $params['order'] : null;
+		if ( null === $order ) {
+			return new WP_Error(
+				'mebuki_pm_review_reorder_invalid',
+				__( 'order must be a non-empty array of review ids.', 'mebuki-portfolio-manager' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$ids = array();
+		foreach ( $order as $raw ) {
+			$ids[] = absint( $raw );
+		}
+		$ids = array_values( array_filter( $ids ) );
+		if ( array() === $ids ) {
+			return new WP_Error(
+				'mebuki_pm_review_reorder_invalid',
+				__( 'order must be a non-empty array of review ids.', 'mebuki-portfolio-manager' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$ids_unique = array_values( array_unique( $ids ) );
+		if ( count( $ids ) !== count( $ids_unique ) ) {
+			return new WP_Error(
+				'mebuki_pm_review_reorder_invalid',
+				__( 'order must not contain duplicate ids.', 'mebuki-portfolio-manager' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$db_ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT id FROM {$table_name} WHERE user_id = %d",
+				$owner_id
+			)
+		);
+		if ( ! is_array( $db_ids ) ) {
+			$db_ids = array();
+		}
+		$db_ids = array_map( 'intval', $db_ids );
+		sort( $db_ids );
+		$incoming = array_map( 'intval', $ids_unique );
+		sort( $incoming );
+		if ( $db_ids !== $incoming ) {
+			return new WP_Error(
+				'mebuki_pm_review_reorder_invalid',
+				__( 'order must list every review id for this portfolio exactly once.', 'mebuki-portfolio-manager' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$wpdb->query( 'START TRANSACTION' );
+		$ok = true;
+		foreach ( $ids as $position => $rid ) {
+			$updated = $wpdb->update(
+				$table_name,
+				array( 'sort_order' => (int) $position ),
+				array(
+					'id'      => (int) $rid,
+					'user_id' => $owner_id,
+				),
+				array( '%d' ),
+				array( '%d', '%d' )
+			);
+			if ( false === $updated ) {
+				$ok = false;
+				break;
+			}
+		}
+		if ( ! $ok ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error(
+				'mebuki_pm_review_reorder_failed',
+				__( 'Failed to save review order.', 'mebuki-portfolio-manager' ),
+				array( 'status' => 500 )
+			);
+		}
+		$wpdb->query( 'COMMIT' );
+
+		return rest_ensure_response(
+			array(
+				'success' => true,
 			)
 		);
 	}
@@ -1260,8 +1572,8 @@ class Mebuki_PM_API {
 
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, user_id, item_type, item_id, reviewer_name, reviewer_thumbnail_url, review_text, status, created_at, updated_at
-				FROM {$table_name} WHERE user_id = %d ORDER BY created_at DESC",
+				"SELECT id, user_id, item_type, item_id, reviewer_name, reviewer_thumbnail_url, review_text, status, sort_order, created_at, updated_at
+				FROM {$table_name} WHERE user_id = %d ORDER BY sort_order ASC, id ASC",
 				$user_id
 			),
 			ARRAY_A
@@ -1303,8 +1615,8 @@ class Mebuki_PM_API {
 
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, user_id, item_type, item_id, reviewer_name, reviewer_thumbnail_url, review_text, status, created_at, updated_at
-				FROM {$table_name} WHERE user_id = %d AND status = %s ORDER BY created_at DESC",
+				"SELECT id, user_id, item_type, item_id, reviewer_name, reviewer_thumbnail_url, review_text, status, sort_order, created_at, updated_at
+				FROM {$table_name} WHERE user_id = %d AND status = %s ORDER BY sort_order ASC, id ASC",
 				$user_id,
 				'published'
 			),
@@ -1402,6 +1714,113 @@ class Mebuki_PM_API {
 	}
 
 	/**
+	 * If URL points at a plugin-managed reviewer avatar under uploads, delete the file.
+	 *
+	 * @param string $url Stored reviewer_thumbnail_url.
+	 * @return void
+	 */
+	private static function maybe_delete_reviewer_avatar_file_for_url( $url ) {
+		if ( ! is_string( $url ) ) {
+			return;
+		}
+		$url = trim( $url );
+		if ( '' === $url ) {
+			return;
+		}
+
+		$upload_dir = wp_upload_dir();
+		if ( ! empty( $upload_dir['error'] ) || '' === $upload_dir['basedir'] || '' === $upload_dir['baseurl'] ) {
+			return;
+		}
+
+		$file_parsed = wp_parse_url( $url );
+		$base_parsed = wp_parse_url( $upload_dir['baseurl'] );
+		if ( empty( $file_parsed['path'] ) || empty( $base_parsed['host'] ) || empty( $base_parsed['path'] ) ) {
+			return;
+		}
+		if ( empty( $file_parsed['host'] ) || strtolower( (string) $file_parsed['host'] ) !== strtolower( (string) $base_parsed['host'] ) ) {
+			return;
+		}
+
+		$file_path = (string) $file_parsed['path'];
+		$base_path = (string) $base_parsed['path'];
+		if ( strpos( $file_path, $base_path ) !== 0 ) {
+			return;
+		}
+
+		$relative = ltrim( substr( $file_path, strlen( $base_path ) ), '/' );
+		if ( ! preg_match( '#^mebuki-pm/reviewer-avatars/\d+/#', $relative ) ) {
+			return;
+		}
+
+		$candidate = wp_normalize_path( path_join( $upload_dir['basedir'], $relative ) );
+		$basedir   = wp_normalize_path( $upload_dir['basedir'] );
+		if ( strpos( $candidate, $basedir ) !== 0 ) {
+			return;
+		}
+		if ( is_file( $candidate ) ) {
+			wp_delete_file( $candidate );
+		}
+	}
+
+	/**
+	 * DELETE /reviews/{id} — remove a review row owned by the current user.
+	 *
+	 * @param WP_REST_Request $request Request instance.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function delete_review( WP_REST_Request $request ) {
+		global $wpdb;
+
+		$table_name = $wpdb->prefix . 'mebuki_pm_reviews';
+		$review_id  = (int) $request->get_param( 'id' );
+		$owner_id   = get_current_user_id();
+
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$table_name} WHERE id = %d LIMIT 1",
+				$review_id
+			),
+			ARRAY_A
+		);
+
+		if ( empty( $row ) || (int) $row['user_id'] !== $owner_id ) {
+			return new WP_Error(
+				'mebuki_pm_review_not_found',
+				__( 'Review not found.', 'mebuki-portfolio-manager' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$thumb = isset( $row['reviewer_thumbnail_url'] ) ? (string) $row['reviewer_thumbnail_url'] : '';
+		self::maybe_delete_reviewer_avatar_file_for_url( $thumb );
+
+		$deleted = $wpdb->delete(
+			$table_name,
+			array(
+				'id'      => $review_id,
+				'user_id' => $owner_id,
+			),
+			array( '%d', '%d' )
+		);
+
+		if ( false === $deleted || (int) $deleted < 1 ) {
+			return new WP_Error(
+				'mebuki_pm_review_delete_failed',
+				__( 'Failed to delete review.', 'mebuki-portfolio-manager' ),
+				array( 'status' => 500 )
+			);
+		}
+
+		return rest_ensure_response(
+			array(
+				'success' => true,
+				'id'      => $review_id,
+			)
+		);
+	}
+
+	/**
 	 * Normalize review row for REST.
 	 *
 	 * @param array|null $row DB row.
@@ -1421,6 +1840,7 @@ class Mebuki_PM_API {
 			'reviewer_thumbnail_url' => isset( $row['reviewer_thumbnail_url'] ) ? $row['reviewer_thumbnail_url'] : '',
 			'review_text'            => isset( $row['review_text'] ) ? $row['review_text'] : '',
 			'status'                 => isset( $row['status'] ) ? $row['status'] : '',
+			'sort_order'             => isset( $row['sort_order'] ) ? (int) $row['sort_order'] : 0,
 			'created_at'             => isset( $row['created_at'] ) ? $row['created_at'] : null,
 			'updated_at'             => isset( $row['updated_at'] ) ? $row['updated_at'] : null,
 		);

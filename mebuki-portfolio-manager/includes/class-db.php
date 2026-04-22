@@ -56,17 +56,68 @@ class Mebuki_PM_DB {
 			reviewer_thumbnail_url VARCHAR(500) DEFAULT '' NOT NULL,
 			review_text TEXT NOT NULL,
 			status VARCHAR(20) NOT NULL,
+			sort_order INT UNSIGNED NOT NULL DEFAULT 0,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,
 			PRIMARY KEY  (id),
 			KEY user_id (user_id),
 			KEY status (status),
-			KEY target_item (item_type, item_id)
+			KEY target_item (item_type, item_id),
+			KEY user_sort (user_id, sort_order)
 		) {$charset_collate};";
 
 		dbDelta( $sql_settings );
 		dbDelta( $sql_orders );
 		dbDelta( $sql_reviews );
+
+		self::maybe_backfill_review_sort_order( $reviews_table );
+	}
+
+	/**
+	 * One-time per site: assign sort_order to match previous newest-first order per owner.
+	 *
+	 * @param string $reviews_table Full table name including prefix.
+	 * @return void
+	 */
+	private static function maybe_backfill_review_sort_order( $reviews_table ) {
+		global $wpdb;
+
+		if ( get_option( 'mebuki_pm_review_sort_backfill_v1', false ) ) {
+			return;
+		}
+
+		$user_ids = $wpdb->get_col( "SELECT DISTINCT user_id FROM {$reviews_table}", 0 );
+		if ( is_array( $user_ids ) ) {
+			foreach ( $user_ids as $uid ) {
+				$uid = absint( $uid );
+				if ( $uid < 1 ) {
+					continue;
+				}
+				$ids = $wpdb->get_col(
+					$wpdb->prepare(
+						"SELECT id FROM {$reviews_table} WHERE user_id = %d ORDER BY created_at DESC, id DESC",
+						$uid
+					)
+				);
+				if ( ! is_array( $ids ) ) {
+					continue;
+				}
+				foreach ( $ids as $position => $rid ) {
+					$wpdb->update(
+						$reviews_table,
+						array( 'sort_order' => (int) $position ),
+						array(
+							'id'      => (int) $rid,
+							'user_id' => $uid,
+						),
+						array( '%d' ),
+						array( '%d', '%d' )
+					);
+				}
+			}
+		}
+
+		update_option( 'mebuki_pm_review_sort_backfill_v1', true, false );
 	}
 }
 

@@ -1,4 +1,11 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import {
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	type ChangeEvent,
+	type FormEvent,
+} from 'react';
 import { postPublicReview } from '../../lib/createPublicReview';
 import type { FrontendViewModel } from '../../frontend/normalizeViewModel';
 
@@ -34,6 +41,15 @@ function normalizeReturnUrl(
 		}
 	}
 	return '#';
+}
+
+const MAX_REVIEWER_AVATAR_BYTES = 2 * 1024 * 1024;
+
+function revokeObjectUrl( ref: { current: string | null } ) {
+	if ( ref.current ) {
+		URL.revokeObjectURL( ref.current );
+		ref.current = null;
+	}
 }
 
 function resolveTarget( vm: FrontendViewModel ): ReviewTarget | null {
@@ -73,12 +89,57 @@ export function ReviewSubmitPage( { vm, siteUrl }: Props ) {
 	);
 
 	const [ reviewerName, setReviewerName ] = useState( '' );
-	const [ reviewerThumbUrl, setReviewerThumbUrl ] = useState( '' );
+	const [ reviewerAvatarFile, setReviewerAvatarFile ] = useState<File | null>( null );
+	const [ reviewerAvatarPreview, setReviewerAvatarPreview ] = useState<string | null>( null );
+	const avatarPreviewUrlRef = useRef<string | null>( null );
+	const avatarFileInputRef = useRef<HTMLInputElement>( null );
+	const [ avatarClientError, setAvatarClientError ] = useState<string | null>( null );
 	const [ reviewText, setReviewText ] = useState( '' );
 	const [ touched, setTouched ] = useState( false );
 	const [ submitting, setSubmitting ] = useState( false );
 	const [ submitError, setSubmitError ] = useState<string | null>( null );
 	const [ success, setSuccess ] = useState( false );
+
+	useEffect(
+		() => () => {
+			revokeObjectUrl( avatarPreviewUrlRef );
+		},
+		[]
+	);
+
+	function clearReviewerAvatar() {
+		setReviewerAvatarFile( null );
+		setReviewerAvatarPreview( null );
+		revokeObjectUrl( avatarPreviewUrlRef );
+		setAvatarClientError( null );
+		if ( avatarFileInputRef.current ) {
+			avatarFileInputRef.current.value = '';
+		}
+	}
+
+	function onReviewerAvatarChange( e: ChangeEvent<HTMLInputElement> ) {
+		const file = e.target.files?.[ 0 ];
+		setAvatarClientError( null );
+		if ( ! file ) {
+			clearReviewerAvatar();
+			return;
+		}
+		if ( ! file.type.startsWith( 'image/' ) ) {
+			setAvatarClientError( '画像ファイルを選択してください。' );
+			e.target.value = '';
+			return;
+		}
+		if ( file.size > MAX_REVIEWER_AVATAR_BYTES ) {
+			setAvatarClientError( '2MB以下の画像にしてください。' );
+			e.target.value = '';
+			return;
+		}
+		revokeObjectUrl( avatarPreviewUrlRef );
+		const url = URL.createObjectURL( file );
+		avatarPreviewUrlRef.current = url;
+		setReviewerAvatarFile( file );
+		setReviewerAvatarPreview( url );
+	}
 
 	const nameError =
 		touched && reviewerName.trim() === '' ? 'お名前を入力してください。' : null;
@@ -111,14 +172,20 @@ export function ReviewSubmitPage( { vm, siteUrl }: Props ) {
 		}
 
 		setSubmitting( true );
-		const result = await postPublicReview( root, {
-			user_slug: userSlug,
-			item_type: target.itemType,
-			item_id: target.itemId,
-			reviewer_name: reviewerName.trim(),
-			reviewer_thumbnail_url: reviewerThumbUrl.trim(),
-			review_text: reviewText.trim(),
-		} );
+		const result = await postPublicReview(
+			root,
+			{
+				user_slug: userSlug,
+				item_type: target.itemType,
+				item_id: target.itemId,
+				reviewer_name: reviewerName.trim(),
+				reviewer_thumbnail_url: '',
+				review_text: reviewText.trim(),
+			},
+			reviewerAvatarFile
+				? { reviewerAvatarFile: reviewerAvatarFile }
+				: undefined
+		);
 		setSubmitting( false );
 
 		if ( result.ok ) {
@@ -191,15 +258,44 @@ export function ReviewSubmitPage( { vm, siteUrl }: Props ) {
 
 						<div>
 							<label className="mb-1 block text-sm font-medium text-[var(--mebuki-text)]">
-								プロフィール画像URL（任意）
+								プロフィール画像（任意）
 							</label>
-							<input
-								type="url"
-								value={ reviewerThumbUrl }
-								onChange={ ( e ) => setReviewerThumbUrl( e.target.value ) }
-								className="w-full rounded-[var(--mebuki-radius)] border border-[color-mix(in_srgb,var(--mebuki-text)_18%,transparent)] bg-[var(--mebuki-bg)] px-3 py-2 text-sm text-[var(--mebuki-text)] focus:border-[var(--mebuki-accent)] focus:outline-none focus:ring-2 focus:ring-[color-mix(in_srgb,var(--mebuki-accent)_35%,transparent)]"
-								disabled={ submitting }
-							/>
+							<p className="mb-2 text-xs text-[var(--mebuki-text-muted)]">
+								JPG・PNG・GIF・WebP（2MBまで）
+							</p>
+							<div className="flex flex-wrap items-start gap-3">
+								<input
+									ref={ avatarFileInputRef }
+									type="file"
+									accept="image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp"
+									onChange={ onReviewerAvatarChange }
+									disabled={ submitting }
+									className="max-w-full text-sm text-[var(--mebuki-text)] file:mr-3 file:rounded-[var(--mebuki-radius)] file:border-0 file:bg-[color-mix(in_srgb,var(--mebuki-accent)_12%,transparent)] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[var(--mebuki-accent)]"
+								/>
+								{ reviewerAvatarFile ? (
+									<button
+										type="button"
+										onClick={ clearReviewerAvatar }
+										disabled={ submitting }
+										className="rounded-[var(--mebuki-radius)] border border-[color-mix(in_srgb,var(--mebuki-text)_18%,transparent)] px-3 py-1.5 text-sm text-[var(--mebuki-text)] disabled:opacity-60"
+									>
+										画像をクリア
+									</button>
+								) : null }
+							</div>
+							{ reviewerAvatarPreview ? (
+								<div className="mt-3">
+									<p className="mb-1 text-xs text-[var(--mebuki-text-muted)]">プレビュー</p>
+									<img
+										src={ reviewerAvatarPreview }
+										alt=""
+										className="h-16 w-16 rounded-full object-cover ring-1 ring-[color-mix(in_srgb,var(--mebuki-text)_12%,transparent)]"
+									/>
+								</div>
+							) : null }
+							{ avatarClientError ? (
+								<p className="mt-1 text-xs text-rose-600">{ avatarClientError }</p>
+							) : null }
 						</div>
 
 						<div>
