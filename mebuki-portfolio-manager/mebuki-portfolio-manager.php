@@ -27,6 +27,10 @@ if ( ! defined( 'MEBUKI_PM_PATH' ) ) {
  * to autoloading straightforward when classes increase.
  */
 final class Mebuki_Portfolio_Manager {
+	private const OPTION_PAGE_PORTFOLIO = 'mebuki_pm_page_portfolio';
+	private const OPTION_PAGE_DASHBOARD = 'mebuki_pm_page_dashboard';
+	private const OPTION_PAGE_REVIEWS   = 'mebuki_pm_page_reviews';
+	private const SHORTCODE_CONTENT     = '[mebuki_portfolio]';
 
 	/**
 	 * Boot plugin runtime.
@@ -73,8 +77,65 @@ final class Mebuki_Portfolio_Manager {
 		self::load_dependencies();
 		self::ensure_roles_and_caps();
 		Mebuki_PM_DB::migrate();
+		self::ensure_core_pages();
 		Mebuki_PM_Frontend::register_rewrite_rules();
 		flush_rewrite_rules();
+	}
+
+	/**
+	 * Create core fixed pages if missing and keep shortcode content consistent.
+	 *
+	 * @return void
+	 */
+	private static function ensure_core_pages() {
+		$pages = array(
+			array(
+				'slug'       => 'portfolio',
+				'title'      => 'ポートフォリオ',
+				'option_key' => self::OPTION_PAGE_PORTFOLIO,
+			),
+			array(
+				'slug'       => 'dashboard',
+				'title'      => 'ダッシュボード',
+				'option_key' => self::OPTION_PAGE_DASHBOARD,
+			),
+			array(
+				'slug'       => 'reviews',
+				'title'      => '口コミ',
+				'option_key' => self::OPTION_PAGE_REVIEWS,
+			),
+		);
+
+		foreach ( $pages as $page_def ) {
+			$page = get_page_by_path( $page_def['slug'], OBJECT, 'page' );
+			if ( ! ( $page instanceof WP_Post ) ) {
+				$page_id = wp_insert_post(
+					array(
+						'post_type'    => 'page',
+						'post_status'  => 'publish',
+						'post_title'   => $page_def['title'],
+						'post_name'    => $page_def['slug'],
+						'post_content' => self::SHORTCODE_CONTENT,
+					),
+					true
+				);
+				if ( is_wp_error( $page_id ) || $page_id <= 0 ) {
+					continue;
+				}
+				update_option( $page_def['option_key'], (int) $page_id, false );
+				continue;
+			}
+
+			if ( self::SHORTCODE_CONTENT !== trim( (string) $page->post_content ) ) {
+				wp_update_post(
+					array(
+						'ID'           => (int) $page->ID,
+						'post_content' => self::SHORTCODE_CONTENT,
+					)
+				);
+			}
+			update_option( $page_def['option_key'], (int) $page->ID, false );
+		}
 	}
 
 	/**

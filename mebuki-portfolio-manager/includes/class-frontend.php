@@ -28,7 +28,20 @@ class Mebuki_PM_Frontend {
 		add_action( 'init', array( __CLASS__, 'register_rewrite_rules' ) );
 		add_filter( 'query_vars', array( __CLASS__, 'register_query_vars' ) );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'maybe_enqueue_assets' ) );
+		add_action( 'wp_head', array( __CLASS__, 'print_shortcode_page_styles' ) );
 		add_filter( 'body_class', array( __CLASS__, 'filter_body_class' ) );
+	}
+
+	/**
+	 * Hide theme page titles on shortcode pages and start rendering from shortcode output.
+	 *
+	 * @return void
+	 */
+	public static function print_shortcode_page_styles() {
+		if ( ! self::is_portfolio_shortcode_request() ) {
+			return;
+		}
+		echo '<style id="mebuki-pm-shortcode-page-style">.mebuki-portfolio-page .entry-title,.mebuki-portfolio-page .page-title,.mebuki-portfolio-page .wp-block-post-title{display:none!important;}</style>';
 	}
 
 	/**
