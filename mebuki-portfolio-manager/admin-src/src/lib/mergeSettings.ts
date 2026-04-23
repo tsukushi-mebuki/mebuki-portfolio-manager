@@ -329,8 +329,10 @@ function normalizePricingCategory( raw: unknown ): PricingCategory {
 		return {
 			id: newLocalId(),
 			name: '',
+			courses_intro: '',
 			courses: [],
 			options: [],
+			notes: '',
 		};
 	}
 	const o = raw as Record<string, unknown>;
@@ -343,8 +345,11 @@ function normalizePricingCategory( raw: unknown ): PricingCategory {
 	return {
 		id: typeof o.id === 'string' ? o.id : newLocalId(),
 		name: typeof o.name === 'string' ? o.name : '',
+		courses_intro:
+			typeof o.courses_intro === 'string' ? o.courses_intro : '',
 		courses,
 		options,
+		notes: typeof o.notes === 'string' ? o.notes : '',
 	};
 }
 
@@ -402,6 +407,7 @@ function pickPricing( raw: unknown ): { categories: PricingCategory[] } {
 			{
 				id: newLocalId(),
 				name: '基本カテゴリ',
+				courses_intro: '',
 				courses: legacy.map( ( row ) => ( {
 					id: newLocalId(),
 					name: row.name,
@@ -409,6 +415,7 @@ function pickPricing( raw: unknown ): { categories: PricingCategory[] } {
 					amount: row.amount,
 				} ) ),
 				options: [],
+				notes: '',
 			},
 		],
 	};

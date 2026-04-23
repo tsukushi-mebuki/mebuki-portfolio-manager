@@ -93,8 +93,12 @@ export interface PricingOption {
 export interface PricingCategory {
 	id: string;
 	name: string;
+	/** ポートフォリオでコース一覧の上に表示 */
+	courses_intro: string;
 	courses: PricingCourse[];
 	options: PricingOption[];
+	/** ポートフォリオでオプションの下に表示 */
+	notes: string;
 }
 
 export interface MebukiFormState {

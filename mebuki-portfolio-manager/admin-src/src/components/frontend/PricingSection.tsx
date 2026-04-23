@@ -124,6 +124,8 @@ export function PricingSection( { pricing }: Props ) {
 		() =>
 			categories.filter( ( c ) =>
 				rowHasContent( c.name ) ||
+				rowHasContent( c.courses_intro ) ||
+				rowHasContent( c.notes ) ||
 				filterVisibleCourses( c ).length > 0 ||
 				filterVisibleOptions( c ).length > 0
 			),
@@ -276,6 +278,13 @@ export function PricingSection( { pricing }: Props ) {
 
 				{ activeCategoryData ? (
 					<div className="space-y-8">
+						{ activeCategoryData.courses_intro.trim() !== '' ? (
+							<div
+								className={ `${ surface } px-4 py-3 text-sm whitespace-pre-wrap text-[var(--mebuki-text)] shadow-sm` }
+							>
+								{ activeCategoryData.courses_intro }
+							</div>
+						) : null }
 						<div>
 							<h3 className="mb-4 text-sm font-medium uppercase tracking-wide text-[var(--mebuki-text-muted)]">
 								コースを選ぶ
@@ -398,6 +407,13 @@ export function PricingSection( { pricing }: Props ) {
 									) }
 								</div>
 							</details>
+						) : null }
+						{ activeCategoryData.notes.trim() !== '' ? (
+							<div
+								className={ `${ surface } px-4 py-3 text-sm whitespace-pre-wrap text-[var(--mebuki-text-muted)] shadow-sm` }
+							>
+								{ activeCategoryData.notes }
+							</div>
 						) : null }
 					</div>
 				) : null }

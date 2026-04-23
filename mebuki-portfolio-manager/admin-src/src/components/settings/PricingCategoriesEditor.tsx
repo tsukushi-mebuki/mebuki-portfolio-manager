@@ -56,8 +56,10 @@ export function PricingSection( { form, setForm }: Props ) {
 			{
 				id,
 				name: '',
+				courses_intro: '',
 				courses: [],
 				options: [],
+				notes: '',
 			},
 		] );
 		setActiveCategoryId( id );
@@ -178,8 +180,8 @@ export function PricingSection( { form, setForm }: Props ) {
 	return (
 		<div className="space-y-6">
 			<p className="text-xs text-slate-500">
-				カテゴリ（タブ）→ コース（単一選択のベース料金）→
-				オプション（複数選択で加算）の順でシミュレーターに表示されます。
+				カテゴリ（タブ）→ コース説明 → コース（単一選択のベース料金）→
+				オプション（複数選択で加算）→ 備考の順でポートフォリオに表示されます。
 			</p>
 
 			<div className="flex flex-wrap items-end gap-2 border-b border-slate-200 pb-3">
@@ -257,6 +259,20 @@ export function PricingSection( { form, setForm }: Props ) {
 								patchCategory( ci, { name: e.target.value } )
 							}
 							placeholder="例: イラスト制作"
+						/>
+					</div>
+
+					<div className="mb-4 border-t border-slate-100 pt-4">
+						<label className="mb-1 block text-xs font-medium text-slate-600">
+							コース説明（コース一覧の上に表示）
+						</label>
+						<textarea
+							className="min-h-[72px] w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+							value={ cat.courses_intro }
+							onChange={ ( e ) =>
+								patchCategory( ci, { courses_intro: e.target.value } )
+							}
+							placeholder="このカテゴリの料金の前提や説明を入力"
 						/>
 					</div>
 
@@ -426,6 +442,20 @@ export function PricingSection( { form, setForm }: Props ) {
 								</div>
 							) ) }
 						</div>
+					</div>
+
+					<div className="mt-6 border-t border-slate-100 pt-4">
+						<label className="mb-1 block text-xs font-medium text-slate-600">
+							備考（オプションの下に表示）
+						</label>
+						<textarea
+							className="min-h-[72px] w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+							value={ cat.notes }
+							onChange={ ( e ) =>
+								patchCategory( ci, { notes: e.target.value } )
+							}
+							placeholder="注意事項や補足など"
+						/>
 					</div>
 				</div>
 			) : null }
