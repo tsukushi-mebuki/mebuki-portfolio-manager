@@ -1,14 +1,14 @@
-import type { HeroConfig } from '../../frontend/normalizeViewModel';
+import type { HeroConfig } from '../../types/settings';
 
 type Props = {
 	siteName: string;
-	hero: HeroConfig | null;
+	hero: HeroConfig;
 };
 
 export function HeroSection( { siteName, hero }: Props ) {
-	const title = hero?.title?.trim() || siteName || 'Portfolio';
-	const subtitle = hero?.subtitle?.trim() || '';
-	const cover = hero?.cover_image_url?.trim() || '';
+	const title = hero.title.trim() || siteName || 'Portfolio';
+	const subtitle = hero.subtitle.trim();
+	const cover = hero.cover_image_url.trim();
 
 	return (
 		<section

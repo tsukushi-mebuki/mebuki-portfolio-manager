@@ -1,19 +1,4 @@
-import {
-	closestCenter,
-	DndContext,
-	type DragEndEvent,
-	KeyboardSensor,
-	PointerSensor,
-	useSensor,
-	useSensors,
-} from '@dnd-kit/core';
-import {
-	arrayMove,
-	SortableContext,
-	sortableKeyboardCoordinates,
-	verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { buildPayloadForApi, SECTION_LABELS, toFormState } from '../../lib/mergeSettings';
 import { fetchSettingsMe, saveSettingsMe } from '../../lib/settingsApi';
@@ -24,13 +9,45 @@ import { YouTubeGallery } from '../gallery/YouTubeGallery';
 import { AboutRepeater } from './AboutRepeater';
 import { BasicSettingsCard } from './BasicSettingsCard';
 import { ReviewsSection } from './ReviewsSection';
-import { SortableSectionCard } from './SortableSectionCard';
 import {
 	CredoSectionEditor,
 	FaqSection,
+	HeroSectionEditor,
 	LinkCardsSection,
 	PricingSection,
 } from './SectionEditors';
+
+type SettingsNavId = 'basic' | SectionId;
+
+/** 左ナビの並び（要件どおり：口コミの次に料金表・FAQ） */
+const SETTINGS_SECTION_TAB_ORDER: SectionId[] = [
+	'hero',
+	'about',
+	'credo',
+	'youtube_gallery',
+	'illustration_gallery',
+	'link_cards',
+	'reviews',
+	'pricing',
+	'faq',
+];
+
+function SectionSettingsPanel( {
+	title,
+	children,
+}: {
+	title: string;
+	children: ReactNode;
+} ) {
+	return (
+		<div className="rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-900/5">
+			<div className="border-b border-slate-100 px-4 py-3">
+				<h2 className="text-sm font-semibold text-slate-800">{ title }</h2>
+			</div>
+			<div className="p-4">{ children }</div>
+		</div>
+	);
+}
 
 function renderSectionBody(
 	id: SectionId,
@@ -40,6 +57,8 @@ function renderSectionBody(
 	onNotify: ( message: string, variant: ToastVariant ) => void
 ) {
 	switch ( id ) {
+		case 'hero':
+			return <HeroSectionEditor form={ form } setForm={ setForm } />;
 		case 'about':
 			return <AboutRepeater form={ form } setForm={ setForm } />;
 		case 'youtube_gallery':
@@ -91,6 +110,7 @@ export function SettingsEditor() {
 	const [ loadError, setLoadError ] = useState<string | null>( null );
 	const [ saving, setSaving ] = useState( false );
 	const [ updatedAt, setUpdatedAt ] = useState<string | null>( null );
+	const [ activeNav, setActiveNav ] = useState<SettingsNavId>( 'basic' );
 
 	const [ toast, setToast ] = useState<{
 		message: string;
@@ -101,13 +121,15 @@ export function SettingsEditor() {
 		setToast( { message, variant } );
 	}, [] );
 
-	const sensors = useSensors(
-		useSensor( PointerSensor, {
-			activationConstraint: { distance: 8 },
-		} ),
-		useSensor( KeyboardSensor, {
-			coordinateGetter: sortableKeyboardCoordinates,
-		} )
+	const navItems = useMemo(
+		() => [
+			{ id: 'basic' as const, label: '基本設定' },
+			...SETTINGS_SECTION_TAB_ORDER.map( ( id ) => ( {
+				id,
+				label: SECTION_LABELS[ id ],
+			} ) ),
+		],
+		[]
 	);
 
 	const load = useCallback( async () => {
@@ -140,24 +162,6 @@ export function SettingsEditor() {
 	useEffect( () => {
 		void load();
 	}, [ load ] );
-
-	const onDragEnd = ( event: DragEndEvent ) => {
-		const { active, over } = event;
-		if ( ! over || active.id === over.id ) {
-			return;
-		}
-		setForm( ( prev ) => {
-			const oldIndex = prev.layout_order.indexOf( active.id as SectionId );
-			const newIndex = prev.layout_order.indexOf( over.id as SectionId );
-			if ( oldIndex === -1 || newIndex === -1 ) {
-				return prev;
-			}
-			return {
-				...prev,
-				layout_order: arrayMove( prev.layout_order, oldIndex, newIndex ),
-			};
-		} );
-	};
 
 	const onSave = async () => {
 		if ( ! rest?.root || ! rest.nonce || saving ) {
@@ -253,11 +257,7 @@ export function SettingsEditor() {
 						サイト表示マスター
 					</h1>
 					<p className="mt-1 text-sm text-slate-600">
-						基本設定は上部に固定。以下のカードは表示順（
-						<code className="rounded bg-slate-100 px-1 text-xs">
-							layout_order
-						</code>
-						）を DnD で変更できます。
+						左のメニューでセクションを切り替えて編集します。表示順は「基本設定」内で変更できます。
 					</p>
 				</div>
 				{ updatedLabel ? (
@@ -267,38 +267,52 @@ export function SettingsEditor() {
 				) }
 			</div>
 
-			<BasicSettingsCard form={ form } setForm={ setForm } />
-
-			<p className="mb-4 text-sm text-slate-600">
-				左の <span className="font-mono">⋮⋮</span> ハンドルでセクション全体の順序を変更します（口コミブロックの位置もここで制御）。
-			</p>
-
-			<DndContext
-				sensors={ sensors }
-				collisionDetection={ closestCenter }
-				onDragEnd={ onDragEnd }
-			>
-				<SortableContext
-					items={ form.layout_order }
-					strategy={ verticalListSortingStrategy }
+			<div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+				<nav
+					className="flex shrink-0 flex-row flex-wrap gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-sm ring-1 ring-slate-900/5 lg:w-52 lg:flex-col lg:flex-nowrap"
+					aria-label="サイト設定メニュー"
 				>
-					{ form.layout_order.map( ( id ) => (
-						<SortableSectionCard
-							key={ id }
-							id={ id }
-							title={ SECTION_LABELS[ id ] }
-						>
+					{ navItems.map( ( item ) => {
+						const isActive = activeNav === item.id;
+						return (
+							<button
+								key={ item.id }
+								type="button"
+								role="tab"
+								aria-selected={ isActive }
+								className={ `rounded-lg px-3 py-2 text-left text-sm font-medium transition lg:w-full ${
+									isActive
+										? 'bg-sky-50 text-sky-900 ring-1 ring-sky-200'
+										: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+								}` }
+								onClick={ () => setActiveNav( item.id ) }
+							>
+								{ item.label }
+							</button>
+						);
+					} ) }
+				</nav>
+
+				<div
+					className="min-w-0 flex-1"
+					role="tabpanel"
+					aria-labelledby={ `settings-nav-${ activeNav }` }
+				>
+					{ activeNav === 'basic' ? (
+						<BasicSettingsCard form={ form } setForm={ setForm } />
+					) : (
+						<SectionSettingsPanel title={ SECTION_LABELS[ activeNav ] }>
 							{ renderSectionBody(
-								id,
+								activeNav,
 								form,
 								setForm,
 								restCtx,
 								notify
 							) }
-						</SortableSectionCard>
-					) ) }
-				</SortableContext>
-			</DndContext>
+						</SectionSettingsPanel>
+					) }
+				</div>
+			</div>
 
 			<div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full border border-slate-200 bg-white/95 px-4 py-2 shadow-lg backdrop-blur">
 				<button

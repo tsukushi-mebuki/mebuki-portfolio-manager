@@ -2,6 +2,7 @@ import type {
 	AboutItem,
 	GalleryCategory,
 	GalleryReviewItem,
+	HeroConfig,
 	LinkCardItem,
 	MebukiFormState,
 	PricingCategory,
@@ -17,6 +18,7 @@ import {
 import type { ThemePresetId } from './themePresets';
 
 export const ALL_SECTIONS: SectionId[] = [
+	'hero',
 	'about',
 	'credo',
 	'youtube_gallery',
@@ -28,7 +30,8 @@ export const ALL_SECTIONS: SectionId[] = [
 ];
 
 export const SECTION_LABELS: Record<SectionId, string> = {
-	about: '自己紹介（About）',
+	hero: 'ヒーローセクション',
+	about: '自己紹介',
 	credo: 'クレド',
 	youtube_gallery: 'YouTubeギャラリー',
 	illustration_gallery: 'イラストギャラリー',
@@ -64,10 +67,33 @@ export function normalizeLayoutOrder( order: unknown ): SectionId[] {
 	}
 	for ( const id of ALL_SECTIONS ) {
 		if ( ! seen.has( id ) ) {
-			out.push( id );
+			seen.add( id );
+			// 既存データに `hero` が無い場合は先頭へ（従来は常に最上段だったため）
+			if ( id === 'hero' ) {
+				out.unshift( 'hero' );
+			} else {
+				out.push( id );
+			}
 		}
 	}
 	return out;
+}
+
+function pickHeroForForm( raw: unknown ): HeroConfig {
+	if ( ! raw || typeof raw !== 'object' ) {
+		return { title: '', subtitle: '', cover_image_url: '' };
+	}
+	const h = ( raw as Record<string, unknown> ).hero;
+	if ( ! h || typeof h !== 'object' ) {
+		return { title: '', subtitle: '', cover_image_url: '' };
+	}
+	const o = h as Record<string, unknown>;
+	return {
+		title: typeof o.title === 'string' ? o.title : '',
+		subtitle: typeof o.subtitle === 'string' ? o.subtitle : '',
+		cover_image_url:
+			typeof o.cover_image_url === 'string' ? o.cover_image_url : '',
+	};
 }
 
 function pickAboutItems( raw: unknown ): AboutItem[] {
@@ -395,6 +421,7 @@ export function toFormState( raw: Record<string, unknown> | undefined ): MebukiF
 		layout_order: normalizeLayoutOrder( r.layout_order ),
 		theme_preset,
 		theme,
+		hero: pickHeroForForm( r ),
 		about: { items: pickAboutItems( r.about ) },
 		credo: pickCredo( r.credo ),
 		youtube_gallery: {
@@ -444,6 +471,7 @@ export function buildPayloadForApi( form: MebukiFormState ): Record<string, unkn
 		layout_order: form.layout_order,
 		theme_preset: preset,
 		theme,
+		hero: form.hero,
 		about: {
 			items: form.about.items.map( ( row ) => ( {
 				title: row.title,

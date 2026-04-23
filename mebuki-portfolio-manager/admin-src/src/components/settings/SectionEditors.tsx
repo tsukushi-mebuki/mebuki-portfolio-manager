@@ -135,6 +135,71 @@ export function LinkCardsSection( { form, setForm }: Props ) {
 	);
 }
 
+export function HeroSectionEditor( { form, setForm }: Props ) {
+	const h = form.hero;
+	return (
+		<div className="space-y-3">
+			<div>
+				<label className="mb-1 block text-xs text-slate-600">見出し</label>
+				<input
+					type="text"
+					className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+					value={ h.title }
+					onChange={ ( e ) =>
+						setForm( ( f ) => ( {
+							...f,
+							hero: { ...f.hero, title: e.target.value },
+						} ) )
+					}
+					placeholder="未入力のときはサイト名が表示されます"
+				/>
+			</div>
+			<div>
+				<label className="mb-1 block text-xs text-slate-600">サブテキスト</label>
+				<textarea
+					className="min-h-[100px] w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm leading-relaxed focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+					value={ h.subtitle }
+					onChange={ ( e ) =>
+						setForm( ( f ) => ( {
+							...f,
+							hero: { ...f.hero, subtitle: e.target.value },
+						} ) )
+					}
+					placeholder="ヒーロー直下の短い説明文（任意）"
+				/>
+			</div>
+			<div>
+				<label className="mb-1 block text-xs text-slate-600">カバー画像</label>
+				<input
+					type="url"
+					className="mb-2 w-full rounded-md border border-slate-200 px-2 py-1.5 font-mono text-xs focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+					value={ h.cover_image_url }
+					onChange={ ( e ) =>
+						setForm( ( f ) => ( {
+							...f,
+							hero: { ...f.hero, cover_image_url: e.target.value },
+						} ) )
+					}
+					placeholder="https://..."
+				/>
+				<MediaPickerButton
+					label="メディアライブラリから画像を選ぶ"
+					value={ h.cover_image_url }
+					onChange={ ( url ) =>
+						setForm( ( f ) => ( {
+							...f,
+							hero: { ...f.hero, cover_image_url: url },
+						} ) )
+					}
+				/>
+			</div>
+			<p className="text-xs text-slate-500">
+				ヒーローの表示位置は、このカードを DnD で並べ替えて変更できます。
+			</p>
+		</div>
+	);
+}
+
 export function CredoSectionEditor( { form, setForm }: Props ) {
 	return (
 		<div className="space-y-3">

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { KanbanBoard } from './components/kanban/KanbanBoard';
 import { SettingsEditor } from './components/settings/SettingsEditor';
 
-type AdminTab = 'settings' | 'kanban';
+type AdminTab = 'settings' | 'kanban' | 'portfolio';
 
 export default function App() {
 	const [ tab, setTab ] = useState<AdminTab>( 'settings' );
@@ -11,11 +11,16 @@ export default function App() {
 	const tabs: { id: AdminTab; label: string }[] = [
 		{ id: 'settings', label: 'サイト設定' },
 		{ id: 'kanban', label: 'タスク管理' },
+		{ id: 'portfolio', label: 'ポートフォリオページ確認' },
 	];
 
 	return (
 		<div className="min-h-screen bg-slate-50/80 p-4 md:p-6">
-			<div className="mx-auto max-w-6xl">
+			<div
+				className={ `mx-auto ${
+					tab === 'settings' ? 'max-w-7xl' : 'max-w-6xl'
+				}` }
+			>
 				<nav
 					className="mb-6 flex flex-wrap gap-2 border-b border-slate-200 pb-px"
 					aria-label="管理メニュー"
@@ -39,11 +44,7 @@ export default function App() {
 				</nav>
 
 				<div role="tabpanel" aria-labelledby={ `tab-${ tab }` }>
-					{ tab === 'settings' ? (
-						<div className="mx-auto max-w-3xl">
-							<SettingsEditor />
-						</div>
-					) : null }
+					{ tab === 'settings' ? <SettingsEditor /> : null }
 					{ tab === 'kanban' ? (
 						rest?.root && rest?.nonce ? (
 							<KanbanBoard root={ rest.root } nonce={ rest.nonce } />
@@ -52,6 +53,26 @@ export default function App() {
 								REST の初期化情報がありません。
 							</div>
 						)
+					) : null }
+					{ tab === 'portfolio' ? (
+						<div className="space-y-3">
+							<p className="text-sm text-slate-600">
+								公開ポートフォリオを埋め込み表示しています（ログイン中ユーザー向け URL）。
+							</p>
+							{ rest?.portfolioPath || rest?.siteUrl ? (
+								<div className="h-[min(720px,calc(100vh-12rem))] min-h-[400px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+									<iframe
+										title="ポートフォリオプレビュー"
+										className="h-full w-full border-0"
+										src={ rest.portfolioPath || rest.siteUrl }
+									/>
+								</div>
+							) : (
+								<div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+									プレビュー用の URL（portfolioPath / siteUrl）が取得できませんでした。
+								</div>
+							) }
+						</div>
 					) : null }
 				</div>
 			</div>

@@ -1,6 +1,13 @@
 import type { ThemePresetId, ThemeTokens } from '../lib/themePresets';
 
+export interface HeroConfig {
+	title: string;
+	subtitle: string;
+	cover_image_url: string;
+}
+
 export type SectionId =
+	| 'hero'
 	| 'about'
 	| 'credo'
 	| 'youtube_gallery'
@@ -84,6 +91,7 @@ export interface MebukiFormState {
 	layout_order: SectionId[];
 	theme_preset: ThemePresetId;
 	theme: ThemeTokens;
+	hero: HeroConfig;
 	about: { items: AboutItem[] };
 	credo: CredoConfig;
 	youtube_gallery: GalleryConfig;

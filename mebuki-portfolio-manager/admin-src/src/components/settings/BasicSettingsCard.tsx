@@ -5,6 +5,7 @@ import {
 	THEME_PRESETS,
 	type ThemePresetId,
 } from '../../lib/themePresets';
+import { LayoutOrderEditor } from './LayoutOrderEditor';
 
 type Props = {
 	form: MebukiFormState;
@@ -20,7 +21,7 @@ export function BasicSettingsCard( { form, setForm }: Props ) {
 		<div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-slate-900/5">
 			<h2 className="text-base font-semibold text-slate-900">基本設定</h2>
 			<p className="mt-1 text-xs text-slate-500">
-				Stripe・通知メール・テーマプリセット（レイアウト DnD の外で固定表示）
+				Stripe・通知メール・テーマプリセット・ページ上のセクション表示順
 			</p>
 
 			<div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -132,6 +133,8 @@ export function BasicSettingsCard( { form, setForm }: Props ) {
 					/>
 				</div>
 			</div>
+
+			<LayoutOrderEditor form={ form } setForm={ setForm } />
 		</div>
 	);
 }

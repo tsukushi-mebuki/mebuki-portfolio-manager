@@ -96,6 +96,7 @@ class Test_API_Settings extends WP_UnitTestCase {
 	public function test_admin_can_save_credo_and_layout_order() {
 		$payload = array(
 			'layout_order' => array(
+				'hero',
 				'about',
 				'credo',
 				'pricing',
@@ -240,6 +241,7 @@ class Test_API_Settings extends WP_UnitTestCase {
 
 		$payload = array(
 			'layout_order'             => array(
+				'hero',
 				'about',
 				'credo',
 				'youtube_gallery',
@@ -248,6 +250,11 @@ class Test_API_Settings extends WP_UnitTestCase {
 				'pricing',
 				'faq',
 				'reviews',
+			),
+			'hero'                     => array(
+				'title'            => '見出し',
+				'subtitle'         => 'サブ',
+				'cover_image_url'  => 'https://example.com/cover.jpg',
 			),
 			'about'                    => array(
 				'items' => array(
@@ -329,6 +336,7 @@ class Test_API_Settings extends WP_UnitTestCase {
 		$decoded = json_decode( $row['setting_json'], true );
 		$this->assertIsArray( $decoded );
 		$this->assertSame( '制作方針', $decoded['credo']['title'] );
+		$this->assertSame( '見出し', $decoded['hero']['title'] );
 		$this->assertSame( 'yt-item-001', $decoded['youtube_gallery']['items'][0]['item_id'] );
 		$this->assertTrue( (bool) $decoded['show_reviews_under_items'] );
 
@@ -340,6 +348,7 @@ class Test_API_Settings extends WP_UnitTestCase {
 		$this->assertIsArray( $data );
 		$this->assertArrayHasKey( 'settings', $data );
 		$this->assertSame( '制作方針', $data['settings']->credo->title );
+		$this->assertSame( '見出し', $data['settings']->hero->title );
 		$this->assertSame(
 			'yt-item-001',
 			$data['settings']->youtube_gallery->items[0]->item_id
