@@ -25,6 +25,7 @@ import {
 } from '../../lib/reviewsApi';
 import type { MebukiFormState } from '../../types/settings';
 import type { ReviewRow } from '../../types/settings';
+import { MediaPickerButton } from '../MediaPickerButton';
 import type { ToastVariant } from '../Toast';
 
 type Props = {
@@ -308,26 +309,33 @@ export function ReviewsSection( {
 					口コミ投稿完了後の「ポートフォリオサイトへ」リンク先です。未入力時はサイトURLに戻ります。
 				</p>
 				<div className="mt-4">
-					<label
-						htmlFor="review-fallback-icon-url"
-						className="mb-1 block text-sm font-medium text-slate-800"
-					>
-						ダミーアイコンURL
+					<label className="mb-1 block text-sm font-medium text-slate-800">
+						ダミーアイコン画像
 					</label>
-					<input
-						id="review-fallback-icon-url"
-						type="url"
-						inputMode="url"
-						placeholder="https://example.com/fallback-avatar.png"
+					<MediaPickerButton
+						label="メディアライブラリから画像を選ぶ"
 						value={ form.review_fallback_icon_url }
-						onChange={ ( e ) =>
+						onChange={ ( url ) =>
 							setForm( ( prev ) => ( {
 								...prev,
-								review_fallback_icon_url: e.target.value,
+								review_fallback_icon_url: url,
 							} ) )
 						}
-						className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
 					/>
+					{ form.review_fallback_icon_url.trim() !== '' ? (
+						<button
+							type="button"
+							className="mt-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800"
+							onClick={ () =>
+								setForm( ( prev ) => ( {
+									...prev,
+									review_fallback_icon_url: '',
+								} ) )
+							}
+						>
+							ダミーアイコン画像を削除
+						</button>
+					) : null }
 					<p className="mt-2 text-xs text-slate-500">
 						口コミ投稿者の画像が未設定のときに表示するフォールバック画像です。
 					</p>
