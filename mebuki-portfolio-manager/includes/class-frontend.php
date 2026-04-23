@@ -11,6 +11,7 @@ class Mebuki_PM_Frontend {
 	public const QUERY_VAR_USER = 'mebuki_portfolio_user';
 	public const QUERY_VAR_MODE = 'mebuki_portfolio_mode';
 	public const BASE_PATH = 'portfolio';
+	public const PAGE_SLUG_DASHBOARD = 'dashboard';
 	public const MODE_REVIEWS = 'reviews';
 	public const MODE_DASHBOARD = 'admin_dashboard';
 
@@ -81,6 +82,11 @@ class Mebuki_PM_Frontend {
 	 * @return void
 	 */
 	public static function register_rewrite_rules() {
+		add_rewrite_rule(
+			'^' . self::PAGE_SLUG_DASHBOARD . '/?$',
+			'index.php?pagename=' . self::PAGE_SLUG_DASHBOARD . '&' . self::QUERY_VAR_MODE . '=' . self::MODE_DASHBOARD,
+			'top'
+		);
 		add_rewrite_rule(
 			'^' . self::BASE_PATH . '/admin/dashboard/?$',
 			'index.php?pagename=' . self::BASE_PATH . '&' . self::QUERY_VAR_MODE . '=' . self::MODE_DASHBOARD,
@@ -407,7 +413,7 @@ class Mebuki_PM_Frontend {
 		$mode = sanitize_key( (string) get_query_var( self::QUERY_VAR_MODE ) );
 		if ( self::MODE_DASHBOARD === $mode ) {
 			if ( ! self::can_access_frontend_dashboard() ) {
-				$login_url = wp_login_url( home_url( '/' . self::BASE_PATH . '/admin/dashboard/' ) );
+				$login_url = wp_login_url( home_url( '/' . self::PAGE_SLUG_DASHBOARD . '/' ) );
 				return sprintf(
 					'<div class="mebuki-dashboard-auth-required"><p>%s</p><p><a href="%s">%s</a></p></div>',
 					esc_html__( 'このダッシュボードを表示する権限がありません。', 'mebuki-portfolio-manager' ),
