@@ -421,7 +421,9 @@ export function PricingSection( { pricing }: Props ) {
 			</section>
 
 			{ calc ? (
-				<footer
+				<div
+					role="region"
+					aria-label="料金シミュレーター固定バー"
 					className="fixed bottom-0 left-0 right-0 z-50 border-t border-[color-mix(in_srgb,var(--mebuki-text)_12%,transparent)] bg-[var(--mebuki-surface)]/95 px-4 py-3 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] backdrop-blur supports-[backdrop-filter]:bg-[var(--mebuki-surface)]/85"
 					style={ { paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' } }
 				>
@@ -440,7 +442,7 @@ export function PricingSection( { pricing }: Props ) {
 							この内容で問い合わせる
 						</button>
 					</div>
-				</footer>
+				</div>
 			) : null }
 		</>
 	);
