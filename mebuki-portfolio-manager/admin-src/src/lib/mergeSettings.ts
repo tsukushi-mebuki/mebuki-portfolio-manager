@@ -3,6 +3,7 @@ import type {
 	GalleryCategory,
 	GalleryReviewItem,
 	HeroConfig,
+	HeroOverlayAlign,
 	LinkCardItem,
 	MebukiFormState,
 	PricingCategory,
@@ -79,13 +80,28 @@ export function normalizeLayoutOrder( order: unknown ): SectionId[] {
 	return out;
 }
 
+function parseHeroOverlayAlign( v: unknown ): HeroOverlayAlign {
+	if ( v === 'left' || v === 'center' || v === 'right' ) {
+		return v;
+	}
+	return 'center';
+}
+
+const emptyHeroConfig = (): HeroConfig => ( {
+	title: '',
+	subtitle: '',
+	cover_image_url: '',
+	overlay_image_url: '',
+	overlay_align: 'center',
+} );
+
 function pickHeroForForm( raw: unknown ): HeroConfig {
 	if ( ! raw || typeof raw !== 'object' ) {
-		return { title: '', subtitle: '', cover_image_url: '' };
+		return emptyHeroConfig();
 	}
 	const h = ( raw as Record<string, unknown> ).hero;
 	if ( ! h || typeof h !== 'object' ) {
-		return { title: '', subtitle: '', cover_image_url: '' };
+		return emptyHeroConfig();
 	}
 	const o = h as Record<string, unknown>;
 	return {
@@ -93,6 +109,9 @@ function pickHeroForForm( raw: unknown ): HeroConfig {
 		subtitle: typeof o.subtitle === 'string' ? o.subtitle : '',
 		cover_image_url:
 			typeof o.cover_image_url === 'string' ? o.cover_image_url : '',
+		overlay_image_url:
+			typeof o.overlay_image_url === 'string' ? o.overlay_image_url : '',
+		overlay_align: parseHeroOverlayAlign( o.overlay_align ),
 	};
 }
 

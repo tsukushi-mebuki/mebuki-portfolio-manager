@@ -193,6 +193,63 @@ export function HeroSectionEditor( { form, setForm }: Props ) {
 					}
 				/>
 			</div>
+			<div>
+				<label className="mb-1 block text-xs text-slate-600">
+					重ね画像（ロゴ・キャラ等・任意）
+				</label>
+				<p className="mb-2 text-xs text-slate-500">
+					カバー画像の上に表示します。未設定のときは表示されません。
+				</p>
+				<input
+					type="url"
+					className="mb-2 w-full rounded-md border border-slate-200 px-2 py-1.5 font-mono text-xs focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+					value={ h.overlay_image_url }
+					onChange={ ( e ) =>
+						setForm( ( f ) => ( {
+							...f,
+							hero: { ...f.hero, overlay_image_url: e.target.value },
+						} ) )
+					}
+					placeholder="https://..."
+				/>
+				<MediaPickerButton
+					label="メディアライブラリから選ぶ"
+					value={ h.overlay_image_url }
+					onChange={ ( url ) =>
+						setForm( ( f ) => ( {
+							...f,
+							hero: { ...f.hero, overlay_image_url: url },
+						} ) )
+					}
+				/>
+				<fieldset className="mt-3 space-y-2">
+					<legend className="mb-1 text-xs text-slate-600">重ね画像の位置</legend>
+					<div className="flex flex-wrap gap-3 text-sm text-slate-700">
+						{ (
+							[
+								{ value: 'left' as const, label: '左寄せ' },
+								{ value: 'center' as const, label: '中央' },
+								{ value: 'right' as const, label: '右寄せ' },
+							] as const
+						).map( ( opt ) => (
+							<label key={ opt.value } className="inline-flex cursor-pointer items-center gap-1.5">
+								<input
+									type="radio"
+									name="hero-overlay-align"
+									checked={ h.overlay_align === opt.value }
+									onChange={ () =>
+										setForm( ( f ) => ( {
+											...f,
+											hero: { ...f.hero, overlay_align: opt.value },
+										} ) )
+									}
+								/>
+								{ opt.label }
+							</label>
+						) ) }
+					</div>
+				</fieldset>
+			</div>
 			<p className="text-xs text-slate-500">
 				ヒーローの表示位置は、このカードを DnD で並べ替えて変更できます。
 			</p>

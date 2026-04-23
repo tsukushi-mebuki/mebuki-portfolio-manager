@@ -252,9 +252,11 @@ class Test_API_Settings extends WP_UnitTestCase {
 				'reviews',
 			),
 			'hero'                     => array(
-				'title'            => '見出し',
-				'subtitle'         => 'サブ',
-				'cover_image_url'  => 'https://example.com/cover.jpg',
+				'title'               => '見出し',
+				'subtitle'            => 'サブ',
+				'cover_image_url'     => 'https://example.com/cover.jpg',
+				'overlay_image_url'   => 'https://example.com/logo.png',
+				'overlay_align'       => 'right',
 			),
 			'about'                    => array(
 				'items' => array(
@@ -337,6 +339,8 @@ class Test_API_Settings extends WP_UnitTestCase {
 		$this->assertIsArray( $decoded );
 		$this->assertSame( '制作方針', $decoded['credo']['title'] );
 		$this->assertSame( '見出し', $decoded['hero']['title'] );
+		$this->assertSame( 'https://example.com/logo.png', $decoded['hero']['overlay_image_url'] );
+		$this->assertSame( 'right', $decoded['hero']['overlay_align'] );
 		$this->assertSame( 'yt-item-001', $decoded['youtube_gallery']['items'][0]['item_id'] );
 		$this->assertTrue( (bool) $decoded['show_reviews_under_items'] );
 
@@ -349,6 +353,8 @@ class Test_API_Settings extends WP_UnitTestCase {
 		$this->assertArrayHasKey( 'settings', $data );
 		$this->assertSame( '制作方針', $data['settings']->credo->title );
 		$this->assertSame( '見出し', $data['settings']->hero->title );
+		$this->assertSame( 'https://example.com/logo.png', $data['settings']->hero->overlay_image_url );
+		$this->assertSame( 'right', $data['settings']->hero->overlay_align );
 		$this->assertSame(
 			'yt-item-001',
 			$data['settings']->youtube_gallery->items[0]->item_id

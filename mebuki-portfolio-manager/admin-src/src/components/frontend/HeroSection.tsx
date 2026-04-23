@@ -5,10 +5,18 @@ type Props = {
 	hero: HeroConfig;
 };
 
+const overlayJustifyClass: Record<HeroConfig['overlay_align'], string> = {
+	left: 'justify-start',
+	center: 'justify-center',
+	right: 'justify-end',
+};
+
 export function HeroSection( { siteName, hero }: Props ) {
 	const title = hero.title.trim() || siteName || 'Portfolio';
 	const subtitle = hero.subtitle.trim();
 	const cover = hero.cover_image_url.trim();
+	const overlay = hero.overlay_image_url.trim();
+	const hasOverlay = overlay !== '';
 
 	return (
 		<section
@@ -33,18 +41,43 @@ export function HeroSection( { siteName, hero }: Props ) {
 					aria-hidden
 				/>
 			) }
-			<div className="relative mx-auto flex min-h-[min(52vh,28rem)] max-w-5xl flex-col justify-end gap-3 px-4 pb-14 pt-24 sm:px-6 lg:px-8">
-				<h1
-					className="font-[family-name:var(--mebuki-font-heading)] text-3xl font-bold tracking-tight text-[var(--mebuki-text)] sm:text-4xl md:text-5xl"
-					style={ { textShadow: '0 2px 24px color-mix(in srgb, var(--mebuki-bg) 80%, transparent)' } }
-				>
-					{ title }
-				</h1>
-				{ subtitle !== '' ? (
-					<p className="max-w-2xl text-base leading-relaxed text-[var(--mebuki-text-muted)] sm:text-lg">
-						{ subtitle }
-					</p>
+			<div
+				className={
+					hasOverlay
+						? 'relative mx-auto flex min-h-[min(52vh,28rem)] max-w-5xl flex-col px-4 sm:px-6 lg:px-8'
+						: 'relative mx-auto flex min-h-[min(52vh,28rem)] max-w-5xl flex-col justify-end gap-3 px-4 pb-14 pt-24 sm:px-6 lg:px-8'
+				}
+			>
+				{ hasOverlay ? (
+					<div
+						className={ `flex w-full shrink-0 pt-24 pb-3 ${ overlayJustifyClass[ hero.overlay_align ] }` }
+					>
+						<img
+							src={ overlay }
+							alt=""
+							className="max-h-[min(28vh,11rem)] w-auto max-w-[min(92%,18rem)] object-contain drop-shadow-[0_4px_24px_color-mix(in_srgb,var(--mebuki-bg)_75%,transparent)]"
+						/>
+					</div>
 				) : null }
+				<div
+					className={
+						hasOverlay
+							? 'flex flex-1 flex-col justify-end gap-3 pb-14 pt-2'
+							: ''
+					}
+				>
+					<h1
+						className="font-[family-name:var(--mebuki-font-heading)] text-3xl font-bold tracking-tight text-[var(--mebuki-text)] sm:text-4xl md:text-5xl"
+						style={ { textShadow: '0 2px 24px color-mix(in srgb, var(--mebuki-bg) 80%, transparent)' } }
+					>
+						{ title }
+					</h1>
+					{ subtitle !== '' ? (
+						<p className="max-w-2xl text-base leading-relaxed text-[var(--mebuki-text-muted)] sm:text-lg">
+							{ subtitle }
+						</p>
+					) : null }
+				</div>
 			</div>
 		</section>
 	);

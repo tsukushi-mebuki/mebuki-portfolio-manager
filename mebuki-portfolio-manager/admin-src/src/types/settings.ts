@@ -1,9 +1,15 @@
 import type { ThemePresetId, ThemeTokens } from '../lib/themePresets';
 
+/** ヒーロー装飾画像（カバー上）の横位置 */
+export type HeroOverlayAlign = 'left' | 'center' | 'right';
+
 export interface HeroConfig {
 	title: string;
 	subtitle: string;
 	cover_image_url: string;
+	/** カバー画像とは別に重ねる画像（ロゴ・キャラ等）。空なら非表示。 */
+	overlay_image_url: string;
+	overlay_align: HeroOverlayAlign;
 }
 
 export type SectionId =
