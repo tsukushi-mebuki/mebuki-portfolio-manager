@@ -6,7 +6,6 @@ import type { ReviewRow } from '../types/settings';
 import { publishedReviewsUrlBySlug } from './restUrl';
 
 export function FrontendApp() {
-	const siteName = window.mebukiPmSettings?.siteName ?? '';
 	const siteUrl = window.mebukiPmSettings?.siteUrl ?? '';
 	const pathname = window.location.pathname.toLowerCase();
 	const qs = new URLSearchParams( window.location.search );
@@ -71,7 +70,6 @@ export function FrontendApp() {
 					key={ id }
 					sectionId={ id }
 					vm={ vm }
-					siteName={ siteName }
 					siteUrl={ siteUrl }
 					publishedReviews={ publishedReviews }
 				/>

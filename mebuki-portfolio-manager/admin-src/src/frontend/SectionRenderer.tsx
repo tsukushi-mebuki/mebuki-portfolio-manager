@@ -14,7 +14,6 @@ import { HeroSection } from '../components/frontend/HeroSection';
 type Props = {
 	sectionId: SectionId;
 	vm: FrontendViewModel;
-	siteName: string;
 	siteUrl: string;
 	publishedReviews: ReviewRow[] | null;
 };
@@ -22,7 +21,6 @@ type Props = {
 type SectionRenderContext = {
 	vm: FrontendViewModel;
 	siteUrl: string;
-	siteName: string;
 };
 
 /**
@@ -32,9 +30,7 @@ const SECTION_REGISTRY: Record<
 	SectionId,
 	( ctx: SectionRenderContext ) => ReactNode
 > = {
-	hero: ( { vm, siteName } ) => (
-		<HeroSection siteName={ siteName } hero={ vm.hero } />
-	),
+	hero: ( { vm } ) => <HeroSection hero={ vm.hero } />,
 	about: ( { vm } ) => <AboutSection items={ vm.about.items } />,
 	credo: ( { vm } ) => <CredoSection credo={ vm.credo } />,
 	'youtube_gallery': () => null,
@@ -48,7 +44,6 @@ const SECTION_REGISTRY: Record<
 export function SectionRenderer( {
 	sectionId,
 	vm,
-	siteName,
 	siteUrl,
 	publishedReviews,
 }: Props ) {
@@ -90,5 +85,5 @@ export function SectionRenderer( {
 			/>
 		);
 	}
-	return render( { vm, siteUrl, siteName } );
+	return render( { vm, siteUrl } );
 }

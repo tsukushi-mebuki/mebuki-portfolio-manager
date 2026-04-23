@@ -90,6 +90,8 @@ function parseHeroOverlayAlign( v: unknown ): HeroOverlayAlign {
 const emptyHeroConfig = (): HeroConfig => ( {
 	title: '',
 	subtitle: '',
+	title_image_url: '',
+	subtitle_image_url: '',
 	cover_image_url: '',
 	overlay_image_url: '',
 	overlay_align: 'center',
@@ -107,6 +109,10 @@ function pickHeroForForm( raw: unknown ): HeroConfig {
 	return {
 		title: typeof o.title === 'string' ? o.title : '',
 		subtitle: typeof o.subtitle === 'string' ? o.subtitle : '',
+		title_image_url:
+			typeof o.title_image_url === 'string' ? o.title_image_url : '',
+		subtitle_image_url:
+			typeof o.subtitle_image_url === 'string' ? o.subtitle_image_url : '',
 		cover_image_url:
 			typeof o.cover_image_url === 'string' ? o.cover_image_url : '',
 		overlay_image_url:

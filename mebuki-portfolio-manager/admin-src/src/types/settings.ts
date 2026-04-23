@@ -6,6 +6,10 @@ export type HeroOverlayAlign = 'left' | 'center' | 'right';
 export interface HeroConfig {
 	title: string;
 	subtitle: string;
+	/** 設定時は見出しテキストの代わりに表示（テキストより優先） */
+	title_image_url: string;
+	/** 設定時はサブテキストの代わりに表示（テキストより優先） */
+	subtitle_image_url: string;
 	cover_image_url: string;
 	/** カバー画像とは別に重ねる画像（ロゴ・キャラ等）。空なら非表示。 */
 	overlay_image_url: string;

@@ -141,6 +141,9 @@ export function HeroSectionEditor( { form, setForm }: Props ) {
 		<div className="space-y-3">
 			<div>
 				<label className="mb-1 block text-xs text-slate-600">見出し</label>
+				<p className="mb-2 text-xs text-slate-500">
+					テキストも見出し画像も空のとき、ポートフォリオでは見出しを出力しません。
+				</p>
 				<input
 					type="text"
 					className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
@@ -151,11 +154,57 @@ export function HeroSectionEditor( { form, setForm }: Props ) {
 							hero: { ...f.hero, title: e.target.value },
 						} ) )
 					}
-					placeholder="未入力のときはサイト名が表示されます"
+					placeholder="見出しテキスト（任意）"
 				/>
+				<div className="mt-3">
+					<label className="mb-1 block text-xs text-slate-600">
+						見出し画像（任意・設定時はテキストの代わりに表示）
+					</label>
+					<input
+						type="url"
+						className="mb-2 w-full rounded-md border border-slate-200 px-2 py-1.5 font-mono text-xs focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+						value={ h.title_image_url }
+						onChange={ ( e ) =>
+							setForm( ( f ) => ( {
+								...f,
+								hero: { ...f.hero, title_image_url: e.target.value },
+							} ) )
+						}
+						placeholder="https://..."
+					/>
+					<div className="flex flex-wrap items-center gap-2">
+						<MediaPickerButton
+							label="メディアから選ぶ"
+							value={ h.title_image_url }
+							onChange={ ( url ) =>
+								setForm( ( f ) => ( {
+									...f,
+									hero: { ...f.hero, title_image_url: url },
+								} ) )
+							}
+						/>
+						{ h.title_image_url.trim() !== '' ? (
+							<button
+								type="button"
+								className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800"
+								onClick={ () =>
+									setForm( ( f ) => ( {
+										...f,
+										hero: { ...f.hero, title_image_url: '' },
+									} ) )
+								}
+							>
+								見出し画像を削除
+							</button>
+						) : null }
+					</div>
+				</div>
 			</div>
 			<div>
 				<label className="mb-1 block text-xs text-slate-600">サブテキスト</label>
+				<p className="mb-2 text-xs text-slate-500">
+					テキストもサブ画像も空のとき、ポートフォリオではサブを出力しません。
+				</p>
 				<textarea
 					className="min-h-[100px] w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm leading-relaxed focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
 					value={ h.subtitle }
@@ -167,6 +216,49 @@ export function HeroSectionEditor( { form, setForm }: Props ) {
 					}
 					placeholder="ヒーロー直下の短い説明文（任意）"
 				/>
+				<div className="mt-3">
+					<label className="mb-1 block text-xs text-slate-600">
+						サブ画像（任意・設定時はテキストの代わりに表示）
+					</label>
+					<input
+						type="url"
+						className="mb-2 w-full rounded-md border border-slate-200 px-2 py-1.5 font-mono text-xs focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+						value={ h.subtitle_image_url }
+						onChange={ ( e ) =>
+							setForm( ( f ) => ( {
+								...f,
+								hero: { ...f.hero, subtitle_image_url: e.target.value },
+							} ) )
+						}
+						placeholder="https://..."
+					/>
+					<div className="flex flex-wrap items-center gap-2">
+						<MediaPickerButton
+							label="メディアから選ぶ"
+							value={ h.subtitle_image_url }
+							onChange={ ( url ) =>
+								setForm( ( f ) => ( {
+									...f,
+									hero: { ...f.hero, subtitle_image_url: url },
+								} ) )
+							}
+						/>
+						{ h.subtitle_image_url.trim() !== '' ? (
+							<button
+								type="button"
+								className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800"
+								onClick={ () =>
+									setForm( ( f ) => ( {
+										...f,
+										hero: { ...f.hero, subtitle_image_url: '' },
+									} ) )
+								}
+							>
+								サブ画像を削除
+							</button>
+						) : null }
+					</div>
+				</div>
 			</div>
 			<div>
 				<label className="mb-1 block text-xs text-slate-600">カバー画像</label>
