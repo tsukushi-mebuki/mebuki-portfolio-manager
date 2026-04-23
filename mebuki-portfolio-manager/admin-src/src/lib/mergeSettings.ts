@@ -4,6 +4,7 @@ import type {
 	GalleryReviewItem,
 	HeroConfig,
 	HeroOverlayAlign,
+	InquiryTemplate,
 	LinkCardItem,
 	MebukiFormState,
 	PricingCategory,
@@ -441,6 +442,41 @@ function pickFaqItems( raw: unknown ): { question: string; answer: string }[] {
 	} );
 }
 
+function normalizeInquiryTemplate( raw: unknown ): InquiryTemplate {
+	if ( ! raw || typeof raw !== 'object' ) {
+		return {
+			id: newLocalId(),
+			title: '',
+			pricing_category_ids: [],
+			body: '',
+		};
+	}
+	const o = raw as Record<string, unknown>;
+	return {
+		id: typeof o.id === 'string' ? o.id : newLocalId(),
+		title: typeof o.title === 'string' ? o.title : '',
+		pricing_category_ids: Array.isArray( o.pricing_category_ids )
+			? o.pricing_category_ids.filter(
+					( x ): x is string => typeof x === 'string' && x.trim() !== ''
+				)
+			: [],
+		body: typeof o.body === 'string' ? o.body : '',
+	};
+}
+
+function pickInquiryTemplates( raw: unknown ): { items: InquiryTemplate[] } {
+	if ( ! raw || typeof raw !== 'object' ) {
+		return { items: [] };
+	}
+	const items = ( raw as { items?: unknown } ).items;
+	if ( ! Array.isArray( items ) ) {
+		return { items: [] };
+	}
+	return {
+		items: items.map( ( row ) => normalizeInquiryTemplate( row ) ),
+	};
+}
+
 /**
  * Maps API `settings` object (decoded JSON) into controlled form state.
  */
@@ -470,6 +506,7 @@ export function toFormState( raw: Record<string, unknown> | undefined ): MebukiF
 		},
 		link_cards: { items: pickLinkCardItems( r.link_cards ) },
 		pricing: pickPricing( r.pricing ),
+		inquiry_templates: pickInquiryTemplates( r.inquiry_templates ),
 		faq: { items: pickFaqItems( r.faq ) },
 		stripe_public_key:
 			typeof r.stripe_public_key === 'string' ? r.stripe_public_key : '',
@@ -555,6 +592,14 @@ export function buildPayloadForApi( form: MebukiFormState ): Record<string, unkn
 			} ) ),
 		},
 		pricing: form.pricing,
+		inquiry_templates: {
+			items: form.inquiry_templates.items.map( ( row ) => ( {
+				id: row.id,
+				title: row.title,
+				pricing_category_ids: row.pricing_category_ids,
+				body: row.body,
+			} ) ),
+		},
 		faq: form.faq,
 		stripe_public_key: form.stripe_public_key,
 		stripe_secret_key: form.stripe_secret_key,

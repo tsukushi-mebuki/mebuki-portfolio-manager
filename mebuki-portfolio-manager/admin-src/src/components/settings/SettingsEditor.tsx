@@ -8,6 +8,7 @@ import { IllustrationGallery } from '../gallery/IllustrationGallery';
 import { YouTubeGallery } from '../gallery/YouTubeGallery';
 import { AboutRepeater } from './AboutRepeater';
 import { BasicSettingsCard } from './BasicSettingsCard';
+import { InquiryTemplatesSection } from './InquiryTemplatesSection';
 import { ReviewsSection } from './ReviewsSection';
 import {
 	CredoSectionEditor,
@@ -17,7 +18,7 @@ import {
 	PricingSection,
 } from './SectionEditors';
 
-type SettingsNavId = 'basic' | SectionId;
+type SettingsNavId = 'basic' | SectionId | 'inquiry_templates';
 
 /** 左ナビの並び（要件どおり：口コミの次に料金表・FAQ） */
 const SETTINGS_SECTION_TAB_ORDER: SectionId[] = [
@@ -31,6 +32,11 @@ const SETTINGS_SECTION_TAB_ORDER: SectionId[] = [
 	'pricing',
 	'faq',
 ];
+
+const SETTINGS_EXTRA_NAV_ITEMS: Array<{
+	id: Extract<SettingsNavId, 'inquiry_templates'>;
+	label: string;
+}> = [ { id: 'inquiry_templates', label: '問い合わせテンプレート' } ];
 
 function SectionSettingsPanel( {
 	title,
@@ -128,8 +134,14 @@ export function SettingsEditor() {
 				id,
 				label: SECTION_LABELS[ id ],
 			} ) ),
+			...SETTINGS_EXTRA_NAV_ITEMS,
 		],
 		[]
+	);
+
+	const activeNavLabel = useMemo(
+		() => navItems.find( ( x ) => x.id === activeNav )?.label ?? '設定',
+		[ activeNav, navItems ]
 	);
 
 	const load = useCallback( async () => {
@@ -300,8 +312,12 @@ export function SettingsEditor() {
 				>
 					{ activeNav === 'basic' ? (
 						<BasicSettingsCard form={ form } setForm={ setForm } />
+					) : activeNav === 'inquiry_templates' ? (
+						<SectionSettingsPanel title={ activeNavLabel }>
+							<InquiryTemplatesSection form={ form } setForm={ setForm } />
+						</SectionSettingsPanel>
 					) : (
-						<SectionSettingsPanel title={ SECTION_LABELS[ activeNav ] }>
+						<SectionSettingsPanel title={ activeNavLabel }>
 							{ renderSectionBody(
 								activeNav,
 								form,

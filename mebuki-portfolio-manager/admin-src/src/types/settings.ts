@@ -101,6 +101,13 @@ export interface PricingCategory {
 	notes: string;
 }
 
+export interface InquiryTemplate {
+	id: string;
+	title: string;
+	pricing_category_ids: string[];
+	body: string;
+}
+
 export interface MebukiFormState {
 	layout_order: SectionId[];
 	theme_preset: ThemePresetId;
@@ -112,6 +119,7 @@ export interface MebukiFormState {
 	illustration_gallery: GalleryConfig;
 	link_cards: { items: LinkCardItem[] };
 	pricing: { categories: PricingCategory[] };
+	inquiry_templates: { items: InquiryTemplate[] };
 	faq: { items: { question: string; answer: string }[] };
 	stripe_public_key: string;
 	stripe_secret_key: string;

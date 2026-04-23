@@ -199,6 +199,7 @@ export function PricingSection( { pricing }: Props ) {
 				? course.name.trim()
 				: calc.courseName ?? 'コース';
 		return {
+			categoryId: activeCategoryData.id,
 			categoryName:
 				activeCategoryData.name.trim() !== ''
 					? activeCategoryData.name.trim()

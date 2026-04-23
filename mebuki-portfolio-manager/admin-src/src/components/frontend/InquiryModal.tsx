@@ -1,9 +1,11 @@
-import { useEffect, useId, useState, type FormEvent } from 'react';
+import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
 import type { PricingCalculationResult } from '../../core/logic/calculator';
 import { postPublicOrder } from '../../lib/createPublicOrder';
 import { postOrderCheckout } from '../../lib/orderCheckoutApi';
+import type { InquiryTemplate } from '../../types/settings';
 
 export type InquiryEstimateContext = {
+	categoryId: string;
 	categoryName: string;
 	courseId: string | null;
 	courseDisplayName: string;
@@ -44,18 +46,57 @@ function formatOptionYen( n: number ): string {
 	} ).format( n );
 }
 
-export function InquiryModal( { open, onClose, calc, estimate }: Props ) {
+export function InquiryModal( {
+	open,
+	onClose,
+	calc,
+	estimate,
+}: Props ) {
 	const titleId = useId();
 	const [ requestUuid, setRequestUuid ] = useState<string | null>( null );
 	const [ clientName, setClientName ] = useState( '' );
 	const [ clientEmail, setClientEmail ] = useState( '' );
 	const [ message, setMessage ] = useState( '' );
+	const [ selectedTemplateId, setSelectedTemplateId ] = useState( '' );
 	const [ touched, setTouched ] = useState( false );
 	const [ submitting, setSubmitting ] = useState( false );
 	const [ stripeSubmitting, setStripeSubmitting ] = useState( false );
 	const [ submitError, setSubmitError ] = useState<string | null>( null );
 	const actionBusy = submitting || stripeSubmitting;
 	const [ success, setSuccess ] = useState( false );
+	const templates = useMemo( () => {
+		const raw = window.mebukiPmSettings?.settings?.inquiry_templates;
+		if ( ! raw || typeof raw !== 'object' ) {
+			return [] as InquiryTemplate[];
+		}
+		const items = ( raw as { items?: unknown } ).items;
+		if ( ! Array.isArray( items ) ) {
+			return [] as InquiryTemplate[];
+		}
+		return items
+			.map( ( row ) => {
+				if ( ! row || typeof row !== 'object' ) {
+					return null;
+				}
+				const o = row as Record<string, unknown>;
+				if (
+					typeof o.id !== 'string' ||
+					! Array.isArray( o.pricing_category_ids )
+				) {
+					return null;
+				}
+				return {
+					id: o.id,
+					title: typeof o.title === 'string' ? o.title : '',
+					pricing_category_ids: o.pricing_category_ids.filter(
+						( x ): x is string => typeof x === 'string'
+					),
+					body: typeof o.body === 'string' ? o.body : '',
+				} satisfies InquiryTemplate;
+			} )
+			.filter( ( row ): row is InquiryTemplate => row !== null )
+			.filter( ( row ) => row.pricing_category_ids.includes( estimate.categoryId ) );
+	}, [ estimate.categoryId ] );
 
 	useEffect( () => {
 		if ( ! open ) {
@@ -65,12 +106,28 @@ export function InquiryModal( { open, onClose, calc, estimate }: Props ) {
 		setClientName( '' );
 		setClientEmail( '' );
 		setMessage( '' );
+		setSelectedTemplateId( templates[ 0 ]?.id ?? '' );
 		setTouched( false );
 		setSubmitting( false );
 		setStripeSubmitting( false );
 		setSubmitError( null );
 		setSuccess( false );
-	}, [ open ] );
+	}, [ open, templates ] );
+
+	const selectedTemplate =
+		templates.find( ( row ) => row.id === selectedTemplateId ) ?? null;
+
+	function insertSelectedTemplate() {
+		if ( ! selectedTemplate || selectedTemplate.body.trim() === '' ) {
+			return;
+		}
+		setMessage( ( prev ) => {
+			const base = prev.trim();
+			return base === ''
+				? selectedTemplate.body
+				: `${ base }\n\n${ selectedTemplate.body }`;
+		} );
+	}
 
 	useEffect( () => {
 		if ( ! open ) {
@@ -421,6 +478,43 @@ export function InquiryModal( { open, onClose, calc, estimate }: Props ) {
 									補足メッセージ
 									<span className="text-[var(--mebuki-text-muted)]">（任意）</span>
 								</label>
+								{ templates.length > 0 ? (
+									<div className="mb-2 rounded-[var(--mebuki-radius)] border border-[color-mix(in_srgb,var(--mebuki-text)_10%,transparent)] bg-[color-mix(in_srgb,var(--mebuki-bg)_78%,var(--mebuki-surface))] p-3">
+										<p className="mb-2 text-xs text-[var(--mebuki-text-muted)]">
+											このカテゴリで使えるテンプレートから選んで挿入できます。
+										</p>
+										<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+											<select
+												className="min-w-0 flex-1 rounded-[var(--mebuki-radius)] border border-[color-mix(in_srgb,var(--mebuki-text)_18%,transparent)] bg-[var(--mebuki-bg)] px-3 py-2 text-sm text-[var(--mebuki-text)] focus:border-[var(--mebuki-accent)] focus:outline-none focus:ring-2 focus:ring-[color-mix(in_srgb,var(--mebuki-accent)_35%,transparent)]"
+												value={ selectedTemplateId }
+												onChange={ ( e ) =>
+													setSelectedTemplateId( e.target.value )
+												}
+												disabled={ actionBusy }
+											>
+												{ templates.map( ( row ) => (
+													<option key={ row.id } value={ row.id }>
+														{ row.title.trim() !== ''
+															? row.title
+															: '（無題テンプレート）' }
+													</option>
+												) ) }
+											</select>
+											<button
+												type="button"
+												className="rounded-[var(--mebuki-radius)] border border-[color-mix(in_srgb,var(--mebuki-text)_20%,transparent)] px-3 py-2 text-sm font-medium text-[var(--mebuki-text)] hover:bg-[color-mix(in_srgb,var(--mebuki-text)_6%,transparent)] disabled:cursor-not-allowed disabled:opacity-60"
+												onClick={ insertSelectedTemplate }
+												disabled={
+													actionBusy ||
+													! selectedTemplate ||
+													selectedTemplate.body.trim() === ''
+												}
+											>
+												テンプレートを挿入
+											</button>
+										</div>
+									</div>
+								) : null }
 								<textarea
 									id="mebuki-inquiry-message"
 									rows={ 4 }
