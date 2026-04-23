@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type {
 	MebukiFormState,
 	PricingCategory,
@@ -24,17 +25,42 @@ function updateCategories(
 
 export function PricingSection( { form, setForm }: Props ) {
 	const categories = form.pricing.categories;
+	const [ activeCategoryId, setActiveCategoryId ] = useState<string | null>(
+		null
+	);
+
+	useEffect( () => {
+		if ( categories.length === 0 ) {
+			return;
+		}
+		if (
+			! activeCategoryId ||
+			! categories.some( ( c ) => c.id === activeCategoryId )
+		) {
+			setActiveCategoryId( categories[ 0 ].id );
+		}
+	}, [ categories, activeCategoryId ] );
+
+	const activeIndex = useMemo( () => {
+		if ( categories.length === 0 ) {
+			return -1;
+		}
+		const i = categories.findIndex( ( c ) => c.id === activeCategoryId );
+		return i >= 0 ? i : 0;
+	}, [ categories, activeCategoryId ] );
 
 	const addCategory = () => {
+		const id = newLocalId();
 		updateCategories( setForm, ( cats ) => [
 			...cats,
 			{
-				id: newLocalId(),
+				id,
 				name: '',
 				courses: [],
 				options: [],
 			},
 		] );
+		setActiveCategoryId( id );
 	};
 
 	const patchCategory = (
@@ -54,9 +80,20 @@ export function PricingSection( { form, setForm }: Props ) {
 	};
 
 	const removeCategory = ( index: number ) => {
+		const removedId = categories[ index ]?.id;
 		updateCategories( setForm, ( cats ) =>
 			cats.filter( ( _, i ) => i !== index )
 		);
+		if ( activeCategoryId !== removedId ) {
+			return;
+		}
+		const nextCats = categories.filter( ( _, i ) => i !== index );
+		if ( nextCats.length === 0 ) {
+			setActiveCategoryId( null );
+			return;
+		}
+		const nextIndex = Math.min( index, nextCats.length - 1 );
+		setActiveCategoryId( nextCats[ nextIndex ]!.id );
 	};
 
 	const addCourse = ( catIndex: number ) => {
@@ -135,19 +172,66 @@ export function PricingSection( { form, setForm }: Props ) {
 		} ) );
 	};
 
+	const cat = activeIndex >= 0 ? categories[ activeIndex ] : undefined;
+	const ci = activeIndex;
+
 	return (
 		<div className="space-y-6">
 			<p className="text-xs text-slate-500">
 				カテゴリ（タブ）→ コース（単一選択のベース料金）→
 				オプション（複数選択で加算）の順でシミュレーターに表示されます。
 			</p>
-			{ categories.length === 0 ? (
-				<p className="text-sm text-slate-500">カテゴリがまだありません。</p>
-			) : null }
-			{ categories.map( ( cat, ci ) => (
+
+			<div className="flex flex-wrap items-end gap-2 border-b border-slate-200 pb-3">
+				<div
+					className="flex min-w-0 flex-1 flex-wrap gap-2"
+					role="tablist"
+					aria-label="料金カテゴリ"
+				>
+					{ categories.length === 0 ? (
+						<p className="text-sm text-slate-500">
+							カテゴリがまだありません。右の＋から追加できます。
+						</p>
+					) : (
+						categories.map( ( c, i ) => {
+							const selected = c.id === activeCategoryId;
+							return (
+								<button
+									key={ c.id }
+									type="button"
+									role="tab"
+									aria-selected={ selected }
+									className={
+										selected
+											? 'rounded-t-md border border-b-0 border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm ring-1 ring-slate-900/5'
+											: 'rounded-t-md px-3 py-2 text-sm font-medium text-slate-500 hover:text-slate-800'
+									}
+									onClick={ () => setActiveCategoryId( c.id ) }
+								>
+									{ c.name.trim() !== ''
+										? c.name
+										: `カテゴリ ${ i + 1 }` }
+								</button>
+							);
+						} )
+					) }
+				</div>
+				<button
+					type="button"
+					className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-lg font-medium leading-none text-slate-700 shadow-sm ring-1 ring-slate-900/5 hover:border-sky-300 hover:bg-sky-50 hover:text-sky-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+					aria-label="カテゴリを追加"
+					title="カテゴリを追加"
+					onClick={ addCategory }
+				>
+					+
+				</button>
+			</div>
+
+			{ cat !== undefined && ci >= 0 ? (
 				<div
 					key={ cat.id }
 					className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm ring-1 ring-slate-900/5"
+					role="tabpanel"
 				>
 					<div className="mb-3 flex flex-wrap items-center justify-between gap-2">
 						<span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -344,14 +428,7 @@ export function PricingSection( { form, setForm }: Props ) {
 						</div>
 					</div>
 				</div>
-			) ) }
-			<button
-				type="button"
-				className="rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-600 hover:border-sky-300 hover:bg-sky-50/50"
-				onClick={ addCategory }
-			>
-				＋ カテゴリを追加
-			</button>
+			) : null }
 		</div>
 	);
 }
