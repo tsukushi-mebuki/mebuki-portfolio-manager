@@ -45,6 +45,7 @@ final class Mebuki_Portfolio_Manager {
 		add_filter( 'login_redirect', array( __CLASS__, 'login_redirect_for_portfolio_editor' ), 10, 3 );
 		Mebuki_PM_Admin::init();
 		Mebuki_PM_Frontend::init();
+		Mebuki_PM_Media::init();
 	}
 
 	/**
@@ -198,6 +199,7 @@ final class Mebuki_Portfolio_Manager {
 		require_once MEBUKI_PM_PATH . 'includes/class-api.php';
 		require_once MEBUKI_PM_PATH . 'includes/class-admin.php';
 		require_once MEBUKI_PM_PATH . 'includes/class-frontend.php';
+		require_once MEBUKI_PM_PATH . 'includes/class-media.php';
 	}
 }
 
