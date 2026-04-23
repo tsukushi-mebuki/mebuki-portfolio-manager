@@ -11,6 +11,8 @@ class Mebuki_PM_Frontend {
 	public const QUERY_VAR_USER = 'mebuki_portfolio_user';
 	public const QUERY_VAR_MODE = 'mebuki_portfolio_mode';
 	public const BASE_PATH = 'portfolio';
+	public const MODE_REVIEWS = 'reviews';
+	public const MODE_DASHBOARD = 'admin_dashboard';
 
 	public const SCRIPT_HANDLE = 'mebuki-pm-frontend';
 
@@ -35,8 +37,13 @@ class Mebuki_PM_Frontend {
 	 */
 	public static function register_rewrite_rules() {
 		add_rewrite_rule(
+			'^' . self::BASE_PATH . '/admin/dashboard/?$',
+			'index.php?pagename=' . self::BASE_PATH . '&' . self::QUERY_VAR_MODE . '=' . self::MODE_DASHBOARD,
+			'top'
+		);
+		add_rewrite_rule(
 			'^' . self::BASE_PATH . '/([^/]+)/reviews/?$',
-			'index.php?pagename=' . self::BASE_PATH . '&' . self::QUERY_VAR_USER . '=$matches[1]&' . self::QUERY_VAR_MODE . '=reviews',
+			'index.php?pagename=' . self::BASE_PATH . '&' . self::QUERY_VAR_USER . '=$matches[1]&' . self::QUERY_VAR_MODE . '=' . self::MODE_REVIEWS,
 			'top'
 		);
 		add_rewrite_rule(
@@ -149,6 +156,12 @@ class Mebuki_PM_Frontend {
 			return;
 		}
 
+		$mode = sanitize_key( (string) get_query_var( self::QUERY_VAR_MODE ) );
+		if ( self::MODE_DASHBOARD === $mode ) {
+			self::maybe_enqueue_dashboard_assets();
+			return;
+		}
+
 		$script_rel = 'assets/frontend.js';
 		$style_rel  = 'assets/frontend.css';
 		$script_fs  = MEBUKI_PM_PATH . $script_rel;
@@ -234,6 +247,111 @@ class Mebuki_PM_Frontend {
 	}
 
 	/**
+	 * Whether current user can access frontend dashboard.
+	 *
+	 * @return bool
+	 */
+	private static function can_access_frontend_dashboard() {
+		return is_user_logged_in() && ( current_user_can( 'manage_options' ) || current_user_can( 'mebuki_manage_portfolio' ) );
+	}
+
+	/**
+	 * Build bootstrap payload used by the admin React app.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function get_dashboard_rest_bootstrap() {
+		$user = wp_get_current_user();
+		$slug = sanitize_title( (string) $user->user_nicename );
+		$portfolio_path = '' !== $slug
+			? home_url( '/' . self::BASE_PATH . '/' . $slug . '/' )
+			: esc_url_raw( home_url( '/' ) );
+
+		return array(
+			'root'          => esc_url_raw( rest_url() ),
+			'nonce'         => wp_create_nonce( 'wp_rest' ),
+			'siteUrl'       => esc_url_raw( home_url( '/' ) ),
+			'portfolioPath' => esc_url_raw( $portfolio_path ),
+		);
+	}
+
+	/**
+	 * Enqueue admin dashboard bundles on frontend dashboard route.
+	 *
+	 * @return void
+	 */
+	private static function maybe_enqueue_dashboard_assets() {
+		if ( ! self::can_access_frontend_dashboard() ) {
+			return;
+		}
+
+		$script_rel = 'assets/admin.js';
+		$style_rel  = 'assets/admin.css';
+		$script_fs  = MEBUKI_PM_PATH . $script_rel;
+		$style_fs   = MEBUKI_PM_PATH . $style_rel;
+		if ( ! is_readable( $script_fs ) ) {
+			return;
+		}
+
+		wp_enqueue_media();
+
+		$base_url = plugin_dir_url( MEBUKI_PM_FILE );
+		$ver_js   = (string) filemtime( $script_fs );
+		$ver_css  = is_readable( $style_fs ) ? (string) filemtime( $style_fs ) : $ver_js;
+
+		$vendor_rel = 'assets/chunks/mebuki-vendor.js';
+		$vendor_fs  = MEBUKI_PM_PATH . $vendor_rel;
+		$deps       = array( 'jquery', 'media-editor' );
+		if ( is_readable( $vendor_fs ) ) {
+			wp_enqueue_script(
+				Mebuki_PM_Admin::VENDOR_HANDLE,
+				$base_url . $vendor_rel,
+				array(),
+				(string) filemtime( $vendor_fs ),
+				true
+			);
+			$deps[] = Mebuki_PM_Admin::VENDOR_HANDLE;
+		}
+
+		$settings_rel = 'assets/chunks/mebuki-settings.js';
+		$settings_fs  = MEBUKI_PM_PATH . $settings_rel;
+		if ( is_readable( $settings_fs ) ) {
+			$settings_deps = is_readable( $vendor_fs ) ? array( Mebuki_PM_Admin::VENDOR_HANDLE ) : array();
+			wp_enqueue_script(
+				Mebuki_PM_Admin::SETTINGS_CHUNK_HANDLE,
+				$base_url . $settings_rel,
+				$settings_deps,
+				(string) filemtime( $settings_fs ),
+				true
+			);
+			$deps[] = Mebuki_PM_Admin::SETTINGS_CHUNK_HANDLE;
+		}
+
+		wp_enqueue_script(
+			Mebuki_PM_Admin::SCRIPT_HANDLE,
+			$base_url . $script_rel,
+			$deps,
+			$ver_js,
+			true
+		);
+
+		wp_localize_script(
+			Mebuki_PM_Admin::SCRIPT_HANDLE,
+			'mebukiPmRest',
+			self::get_dashboard_rest_bootstrap()
+		);
+
+		if ( is_readable( $style_fs ) ) {
+			wp_enqueue_style(
+				Mebuki_PM_Admin::STYLE_HANDLE,
+				$base_url . $style_rel,
+				array(),
+				$ver_css
+			);
+		}
+	}
+
+	/**
 	 * Shortcode output: React mount container only (scripts/styles enqueued separately).
 	 *
 	 * @param array<string, string> $atts Shortcode attributes (unused).
@@ -241,6 +359,19 @@ class Mebuki_PM_Frontend {
 	 */
 	public static function render_shortcode( $atts ) {
 		unset( $atts );
+		$mode = sanitize_key( (string) get_query_var( self::QUERY_VAR_MODE ) );
+		if ( self::MODE_DASHBOARD === $mode ) {
+			if ( ! self::can_access_frontend_dashboard() ) {
+				$login_url = wp_login_url( home_url( '/' . self::BASE_PATH . '/admin/dashboard/' ) );
+				return sprintf(
+					'<div class="mebuki-dashboard-auth-required"><p>%s</p><p><a href="%s">%s</a></p></div>',
+					esc_html__( 'このダッシュボードを表示する権限がありません。', 'mebuki-portfolio-manager' ),
+					esc_url( $login_url ),
+					esc_html__( 'ログインしてアクセス', 'mebuki-portfolio-manager' )
+				);
+			}
+			return '<div id="mebuki-admin-root"></div>';
+		}
 		return '<div id="mebuki-frontend-root"></div>';
 	}
 }

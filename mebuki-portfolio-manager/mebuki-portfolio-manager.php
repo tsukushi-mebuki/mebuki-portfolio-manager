@@ -35,6 +35,7 @@ final class Mebuki_Portfolio_Manager {
 	 */
 	public static function init() {
 		self::load_dependencies();
+		self::ensure_roles_and_caps();
 		add_action( 'rest_api_init', array( 'Mebuki_PM_API', 'register_routes' ) );
 		add_filter( 'script_loader_tag', array( __CLASS__, 'script_loader_tag_module' ), 10, 3 );
 		Mebuki_PM_Admin::init();
@@ -70,9 +71,36 @@ final class Mebuki_Portfolio_Manager {
 	 */
 	public static function activate() {
 		self::load_dependencies();
+		self::ensure_roles_and_caps();
 		Mebuki_PM_DB::migrate();
 		Mebuki_PM_Frontend::register_rewrite_rules();
 		flush_rewrite_rules();
+	}
+
+	/**
+	 * Ensure custom role/capabilities for portfolio operators.
+	 *
+	 * @return void
+	 */
+	private static function ensure_roles_and_caps() {
+		$role = get_role( 'portfolio_editor' );
+		if ( ! $role instanceof WP_Role ) {
+			$role = add_role(
+				'portfolio_editor',
+				__( 'Portfolio Editor', 'mebuki-portfolio-manager' ),
+				array(
+					'read'                   => true,
+					'upload_files'           => true,
+					'mebuki_manage_portfolio' => true,
+				)
+			);
+		}
+
+		if ( $role instanceof WP_Role ) {
+			$role->add_cap( 'read' );
+			$role->add_cap( 'upload_files' );
+			$role->add_cap( 'mebuki_manage_portfolio' );
+		}
 	}
 
 	/**
