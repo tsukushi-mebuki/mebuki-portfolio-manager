@@ -3,6 +3,39 @@
 @tailwind utilities;
 
 @layer base {
+	body.mebuki-portfolio-page header,
+	body.mebuki-portfolio-page footer {
+		display: none;
+	}
+
+	body.mebuki-portfolio-page,
+	body.mebuki-portfolio-page #page,
+	body.mebuki-portfolio-page #content,
+	body.mebuki-portfolio-page .site,
+	body.mebuki-portfolio-page .site-content,
+	body.mebuki-portfolio-page .content-area,
+	body.mebuki-portfolio-page .site-main,
+	body.mebuki-portfolio-page #primary,
+	body.mebuki-portfolio-page .wp-site-blocks,
+	body.mebuki-portfolio-page .is-layout-constrained,
+	body.mebuki-portfolio-page .container,
+	body.mebuki-portfolio-page .ast-container,
+	body.mebuki-portfolio-page .entry-content,
+	body.mebuki-portfolio-page main {
+		margin: 0 !important;
+		padding: 0 !important;
+		max-width: 100% !important;
+	}
+
+	body.mebuki-portfolio-page.admin-bar {
+		margin-top: 0 !important;
+		padding-top: 0 !important;
+	}
+
+	body.mebuki-portfolio-page #wpadminbar {
+		display: none !important;
+	}
+
 	#mebuki-admin-root {
 		--mebuki-safe-vw: calc(100vw - var(--mebuki-scrollbar-width, 0px));
 		width: var(--mebuki-safe-vw);

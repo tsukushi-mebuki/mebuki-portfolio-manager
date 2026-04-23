@@ -28,6 +28,38 @@ class Mebuki_PM_Frontend {
 		add_action( 'init', array( __CLASS__, 'register_rewrite_rules' ) );
 		add_filter( 'query_vars', array( __CLASS__, 'register_query_vars' ) );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'maybe_enqueue_assets' ) );
+		add_filter( 'body_class', array( __CLASS__, 'filter_body_class' ) );
+	}
+
+	/**
+	 * Add a dedicated body class on pages where this plugin renders frontend/admin UI.
+	 *
+	 * @param array<int, string> $classes Existing body classes.
+	 * @return array<int, string>
+	 */
+	public static function filter_body_class( $classes ) {
+		if ( self::is_portfolio_shortcode_request() ) {
+			$classes[] = 'mebuki-portfolio-page';
+		}
+		return $classes;
+	}
+
+	/**
+	 * Whether current request renders the portfolio shortcode page.
+	 *
+	 * @return bool
+	 */
+	private static function is_portfolio_shortcode_request() {
+		if ( ! is_singular() ) {
+			return false;
+		}
+
+		global $post;
+		if ( ! $post instanceof WP_Post ) {
+			return false;
+		}
+
+		return has_shortcode( $post->post_content, self::SHORTCODE );
 	}
 
 	/**

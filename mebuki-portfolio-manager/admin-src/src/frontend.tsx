@@ -42,8 +42,42 @@ function themeToCssVars( theme: ThemeTokens ): CSSProperties {
 function FrontendShell() {
 	useLayoutEffect( () => {
 		let rafId = 0;
+		document.body.classList.add( 'mebuki-portfolio-page' );
+		document.documentElement.style.marginTop = '0px';
+		document.body.style.marginTop = '0px';
+		const hideThemeChrome = () => {
+			const selectors = [
+				'header',
+				'footer',
+				'#masthead',
+				'.site-header',
+				'.l-header',
+				'[role="banner"]',
+			];
+			document
+				.querySelectorAll< HTMLElement >( selectors.join( ',' ) )
+				.forEach( ( el ) => {
+					el.style.display = 'none';
+				} );
+		};
+		const applyViewportVars = () => {
+			const scrollbarWidth = Math.max(
+				window.innerWidth - document.documentElement.clientWidth,
+				0
+			);
+			document.documentElement.style.setProperty(
+				'--mebuki-scrollbar-width',
+				`${ scrollbarWidth }px`
+			);
+			document.documentElement.style.setProperty(
+				'--mebuki-safe-vw',
+				`calc(100vw - ${ scrollbarWidth }px)`
+			);
+		};
+		hideThemeChrome();
 
 		const adjustBleedWidth = () => {
+			applyViewportVars();
 			const viewportWidth = document.documentElement.clientWidth;
 			const bleedElements = document.querySelectorAll< HTMLElement >(
 				'.mebuki-portfolio-bleed'
