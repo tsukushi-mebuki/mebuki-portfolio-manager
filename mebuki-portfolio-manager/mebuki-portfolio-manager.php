@@ -42,8 +42,28 @@ final class Mebuki_Portfolio_Manager {
 		self::ensure_roles_and_caps();
 		add_action( 'rest_api_init', array( 'Mebuki_PM_API', 'register_routes' ) );
 		add_filter( 'script_loader_tag', array( __CLASS__, 'script_loader_tag_module' ), 10, 3 );
+		add_filter( 'login_redirect', array( __CLASS__, 'login_redirect_for_portfolio_editor' ), 10, 3 );
 		Mebuki_PM_Admin::init();
 		Mebuki_PM_Frontend::init();
+	}
+
+	/**
+	 * Redirect portfolio editors to the frontend dashboard after login.
+	 *
+	 * @param string               $redirect_to           Redirect destination.
+	 * @param string               $requested_redirect_to Redirect requested by login form.
+	 * @param WP_User|WP_Error     $user                 Logged in user object.
+	 * @return string
+	 */
+	public static function login_redirect_for_portfolio_editor( $redirect_to, $requested_redirect_to, $user ) {
+		unset( $requested_redirect_to );
+		if ( ! ( $user instanceof WP_User ) ) {
+			return $redirect_to;
+		}
+		if ( user_can( $user, 'mebuki_manage_portfolio' ) && ! user_can( $user, 'manage_options' ) ) {
+			return home_url( '/' . Mebuki_PM_Frontend::PAGE_SLUG_DASHBOARD . '/' );
+		}
+		return $redirect_to;
 	}
 
 	/**
