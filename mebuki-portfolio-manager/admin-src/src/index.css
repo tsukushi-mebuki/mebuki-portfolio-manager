@@ -1,3 +1,43 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+	#mebuki-admin-root {
+		--mebuki-safe-vw: calc(100vw - var(--mebuki-scrollbar-width, 0px));
+		width: var(--mebuki-safe-vw);
+		max-width: var(--mebuki-safe-vw);
+	}
+
+	body.toplevel_page_mebuki-pm #wpcontent,
+	body.toplevel_page_mebuki-pm #wpbody,
+	body.toplevel_page_mebuki-pm #wpbody-content,
+	body.toplevel_page_mebuki-pm .wrap,
+	body.toplevel_page_mebuki-pm #mebuki-admin-root {
+		width: var(--mebuki-safe-vw);
+		max-width: 100%;
+	}
+
+	body.toplevel_page_mebuki-pm #wpcontent {
+		padding-left: 0;
+	}
+
+	body.toplevel_page_mebuki-pm #wpbody-content,
+	body.toplevel_page_mebuki-pm .wrap {
+		margin: 0;
+		padding: 0;
+	}
+
+	body:not(.wp-admin) #mebuki-admin-root {
+		margin-left: calc(50% - (var(--mebuki-safe-vw) / 2));
+		margin-right: calc(50% - (var(--mebuki-safe-vw) / 2));
+	}
+
+	body:not(.wp-admin) .entry-content,
+	body:not(.wp-admin) .wp-block-post-content,
+	body:not(.wp-admin) .site-main,
+	body:not(.wp-admin) main {
+		width: 100%;
+		max-width: 100%;
+	}
+}

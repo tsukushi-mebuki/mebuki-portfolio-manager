@@ -16,11 +16,7 @@ export default function App() {
 
 	return (
 		<div className="min-h-screen bg-slate-50/80 p-4 md:p-6">
-			<div
-				className={ `mx-auto ${
-					tab === 'settings' ? 'max-w-7xl' : 'max-w-6xl'
-				}` }
-			>
+			<div className="w-full">
 				<nav
 					className="mb-6 flex flex-wrap gap-2 border-b border-slate-200 pb-px"
 					aria-label="管理メニュー"
