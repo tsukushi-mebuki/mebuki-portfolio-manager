@@ -314,6 +314,31 @@ export function HeroSectionEditor( { form, setForm }: Props ) {
 						} ) )
 					}
 				/>
+				<div className="mt-3">
+					<label className="mb-1 block text-xs text-slate-600">
+						画像のサイズ設定 (高さ(%))
+					</label>
+					<input
+						type="number"
+						min={ 1 }
+						max={ 100 }
+						step={ 1 }
+						className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+						value={ h.overlay_height_percent }
+						onChange={ ( e ) => {
+							const next = Number( e.target.value );
+							setForm( ( f ) => ( {
+								...f,
+								hero: {
+									...f.hero,
+									overlay_height_percent: Number.isFinite( next )
+										? Math.max( 1, Math.min( 100, Math.round( next ) ) )
+										: 28,
+								},
+							} ) );
+						} }
+					/>
+				</div>
 				<fieldset className="mt-3 space-y-2">
 					<legend className="mb-1 text-xs text-slate-600">重ね画像の位置</legend>
 					<div className="flex flex-wrap gap-3 text-sm text-slate-700">

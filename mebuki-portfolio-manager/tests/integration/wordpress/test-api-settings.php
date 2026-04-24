@@ -259,6 +259,7 @@ class Test_API_Settings extends WP_UnitTestCase {
 				'cover_image_url'      => 'https://example.com/cover.jpg',
 				'overlay_image_url'    => 'https://example.com/logo.png',
 				'overlay_align'        => 'right',
+				'overlay_height_percent' => 36,
 			),
 			'about'                    => array(
 				'items' => array(
@@ -343,6 +344,7 @@ class Test_API_Settings extends WP_UnitTestCase {
 		$this->assertSame( '見出し', $decoded['hero']['title'] );
 		$this->assertSame( 'https://example.com/logo.png', $decoded['hero']['overlay_image_url'] );
 		$this->assertSame( 'right', $decoded['hero']['overlay_align'] );
+		$this->assertSame( 36, $decoded['hero']['overlay_height_percent'] );
 		$this->assertSame( 'https://example.com/hero-title.png', $decoded['hero']['title_image_url'] );
 		$this->assertSame( '', $decoded['hero']['subtitle_image_url'] );
 		$this->assertSame( 'yt-item-001', $decoded['youtube_gallery']['items'][0]['item_id'] );
@@ -359,6 +361,7 @@ class Test_API_Settings extends WP_UnitTestCase {
 		$this->assertSame( '見出し', $data['settings']->hero->title );
 		$this->assertSame( 'https://example.com/logo.png', $data['settings']->hero->overlay_image_url );
 		$this->assertSame( 'right', $data['settings']->hero->overlay_align );
+		$this->assertSame( 36, $data['settings']->hero->overlay_height_percent );
 		$this->assertSame( 'https://example.com/hero-title.png', $data['settings']->hero->title_image_url );
 		$this->assertSame( '', $data['settings']->hero->subtitle_image_url );
 		$this->assertSame(

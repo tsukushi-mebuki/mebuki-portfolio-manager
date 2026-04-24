@@ -88,6 +88,21 @@ function parseHeroOverlayAlign( v: unknown ): HeroOverlayAlign {
 	return 'center';
 }
 
+function parseHeroOverlayHeightPercent( v: unknown ): number {
+	const n = Number( v );
+	if ( ! Number.isFinite( n ) ) {
+		return 28;
+	}
+	const rounded = Math.round( n );
+	if ( rounded < 1 ) {
+		return 1;
+	}
+	if ( rounded > 100 ) {
+		return 100;
+	}
+	return rounded;
+}
+
 const emptyHeroConfig = (): HeroConfig => ( {
 	title: '',
 	subtitle: '',
@@ -96,6 +111,7 @@ const emptyHeroConfig = (): HeroConfig => ( {
 	cover_image_url: '',
 	overlay_image_url: '',
 	overlay_align: 'center',
+	overlay_height_percent: 28,
 } );
 
 function pickHeroForForm( raw: unknown ): HeroConfig {
@@ -119,6 +135,9 @@ function pickHeroForForm( raw: unknown ): HeroConfig {
 		overlay_image_url:
 			typeof o.overlay_image_url === 'string' ? o.overlay_image_url : '',
 		overlay_align: parseHeroOverlayAlign( o.overlay_align ),
+		overlay_height_percent: parseHeroOverlayHeightPercent(
+			o.overlay_height_percent
+		),
 	};
 }
 

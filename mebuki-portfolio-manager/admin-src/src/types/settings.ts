@@ -14,6 +14,8 @@ export interface HeroConfig {
 	/** カバー画像とは別に重ねる画像（ロゴ・キャラ等）。空なら非表示。 */
 	overlay_image_url: string;
 	overlay_align: HeroOverlayAlign;
+	/** 重ね画像の高さ（vh 相当の数値。例: 28 => 28vh） */
+	overlay_height_percent: number;
 }
 
 export type SectionId =
