@@ -20,7 +20,7 @@ export function FAQSection( { items }: Props ) {
 	}
 
 	return (
-		<section className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8" aria-labelledby="mebuki-faq-heading">
+		<section className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8" aria-labelledby="mebuki-faq-heading">
 			<h2
 				id="mebuki-faq-heading"
 				className="mebuki-section-title mebuki-faq-title mb-10 font-[family-name:var(--mebuki-font-heading)] text-2xl font-semibold text-[var(--mebuki-text)] sm:text-3xl"
